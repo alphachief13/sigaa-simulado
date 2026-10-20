@@ -18,6 +18,7 @@ dependencies = [
 dev = [
     "pytest==9.1.1",
     "ruff==0.16.9",
+    "markdown==3.7",  # scripts/gerar_pdfs.py
 ]
 
 [project.scripts]

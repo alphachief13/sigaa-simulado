@@ -106,65 +106,66 @@ Cada componente atende duas estórias.
 **P1 — Próximos prazos (EU4 + EU5)**
 
 ```
-┌──────────────────────────────────────────────┐
-│ 📅 Próximos prazos        5 · próximos 21 dias│
-├──────────────────────────────────────────────┤
-│ 21 out · 23h59 · em 2 dias                   │
-│ Programação Avançada · entrega               │
-│ Documento de requisitos                      │
-│ ──────────────────────────────────────────── │
-│ 04 nov · em 16 dias        ⚠ ALTERADO        │
-│ Física II · prova   (antes: 23 out)          │
-│ Prova 2                                      │
-│ ──────────────────────────────────────────── │
-│ Mostrando 1–3 de 5        [ Ver os outros 2 ]│
-└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│ PRÓXIMOS PRAZOS             5 · próximos 21 dias │
+├──────────────────────────────────────────────────┤
+│ 21 out · 23h59 · em 2 dias             [entrega] │
+│ Programação Avançada                             │
+│ Documento de requisitos                          │
+│ ················································ │
+│ 05 nov · em 17 dias                   ! ALTERADO │
+│ Programação Avançada · prova (antes: 02 nov)     │
+│ Prova 2                                          │
+│ ················································ │
+│ Mostrando 1–3 de 5           [ Ver os outros 2 ] │
+└──────────────────────────────────────────────────┘
 ```
 
 **P2 — Plano de hoje (EU6 + EU7)**
 
 ```
-┌──────────────────────────────────────────────┐
-│ 📚 Plano de 19/10 — 90 min livres  [editar ✎]│
-├──────────────────────────────────────────────┤
-│ ① Programação Avançada — 35 min    [✔][⤼]   │
-│   Documento de requisitos                    │
-│   Por quê: prazo em 2 dias; peso 2           │
-│ ② Álgebra Linear — 35 min          [✔][⤼]   │
-│   Prova 2 · Transformações lineares          │
-│ ③ Álgebra Linear — revisão 15 min  [✔][⤼]   │
-├──────────────────────────────────────────────┤
-│ Mochila 0/1: 3 de 39 candidatas · 85/90 min  │
-└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│ PLANO DE 19/10 — 90 min livres          [editar] │
+├──────────────────────────────────────────────────┤
+│ 1. Programação Avançada — 35 min     [ok][pular] │
+│    Documento de requisitos                       │
+│    Por quê: prazo em 2 dias; peso 2              │
+│ 2. Álgebra Linear — 35 min           [ok][pular] │
+│    Prova 2 · Transformações lineares             │
+│ 3. Álgebra Linear — revisão 15 min   [ok][pular] │
+├──────────────────────────────────────────────────┤
+│ Mochila 0/1: 3 de 39 candidatas · 85/90 min      │
+└──────────────────────────────────────────────────┘
 ```
 
 **P3 — Notas e materiais (EU8 + EU9)**
 
 ```
-┌──────────────────────────────────────────────┐
-│ Disciplina: [ Física II        ▾]            │
-├──────────────┬───────────────────────────────┤
-│ Notas        │ 🔍 [ gauss              ][Ir] │
-│ P1   6,8/10  │ • Notas de aula — Lei de Gauss│
-│ T1   7,7/10  │   "…Lei de Gauss; simetrias…" │
-│ P2   —       │ • Notas — Campo elétrico      │
-│ Faltas: 4    │                               │
-└──────────────┴───────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│ Disciplina: [ Física II              v ]         │
+├──────────────────────────────────────────────────┤
+│ NOTAS        | Buscar: [ gauss         ][Ir]     │
+│ P1   6,8/10  | - Notas de aula — Lei de Gauss    │
+│ T1   7,7/10  |   "...Lei de Gauss; simetrias"    │
+│ P2   —       | - Notas — Campo elétrico          │
+│ Faltas: 4    |                                   │
+└──────────────────────────────────────────────────┘
 ```
 
 **P4 — Controle do simulador (EU1 + EU2)**
 
 ```
-┌──────────────────────────────────────────────┐
-│ SIGAA Simulado · semente 2026 · 2026.2       │
-│ Relógio: 19/10/2026 09:00                    │
-│ [ +1 dia ] [ +1 semana ] [ ir para: ____ ]   │
-├──────────────────────────────────────────────┤
-│ Próximos eventos                             │
-│ 19/10 17:00  prazo prorrogado  Prob. e Est.  │
-│ 29/10 14:00  prova adiada      Cálculo III   │
-│ [ Gerar de novo (nova semente) ]  [Sincronizar]│
-└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│ SIGAA SIMULADO · semente 2026 · 2026.2           │
+│ Relógio: 19/10/2026 09:00                        │
+│ [ +1 dia ] [ +1 semana ] [ ir para: ____ ]       │
+├──────────────────────────────────────────────────┤
+│ PRÓXIMOS EVENTOS                                 │
+│ 19/10 17:00  prazo prorrogado   Prob. e Est.     │
+│ 28/10 14:00  prova adiada       Prog. Avançada   │
+├──────────────────────────────────────────────────┤
+│ [ Gerar de novo (nova semente) ] [ Sincronizar ] │
+└──────────────────────────────────────────────────┘
 ```
 
 ## 6. Diagrama de casos de uso
