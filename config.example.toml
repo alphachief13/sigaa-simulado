@@ -1,0 +1,82 @@
+# Copie para config.toml e ajuste. Não coloque segredos aqui (use .env).
+
+[general]
+timezone = "America/Fortaleza"
+# Rótulo da conta usado na identidade dos registros (não use a matrícula).
+account_label = "default"
+data_dir = "data"
+log_level = "INFO"
+log_retention_days = 30
+
+[sigaa]
+institution = "sim"
+# "simulado" -> SIGAA Simulado (banco gerado por `sigaa-sim simulador gerar`).
+# "demo"     -> fixtures JSON mínimas (usadas pelos testes e por `sigaa-sim demo`).
+# Não existe perfil para o SIGAA real: este projeto não acessa nenhum portal.
+profile = "simulado"
+# Banco do SIGAA Simulado (relativo a data_dir).
+sim_db = "sigaa_simulado.db"
+# Fixture usada pelo perfil demo (ver sigaa_sim/sigaa/fixtures/).
+demo_fixture = "baseline"
+
+[collection]
+# Quantas coletas completas consecutivas sem o item antes de marcá-lo removido.
+removal_after_missing_collections = 3
+
+[telegram]
+enabled = false
+# "demo" grava mensagens em data_dir/telegram_demo.log; "http" envia de verdade.
+mode = "demo"
+# Dias antes do prazo para lembrar (0 = no dia).
+reminder_days = [7, 3, 1, 0]
+quiet_hours_start = "22:00"
+quiet_hours_end = "07:00"
+daily_summary_enabled = false
+daily_summary_time = "07:30"
+max_attempts = 5
+
+[groq]
+enabled = false
+# Verifique modelos e limites vigentes em https://console.groq.com/docs/models
+model = "openai/gpt-oss-20b"
+# Modo estruturado: "strict" (constrained decoding; só em modelos suportados), "best_effort" ou "json_object".
+structured_mode = "strict"
+temperature = 0.2
+# gpt-oss: "low" gasta poucos tokens de raciocínio (o free tier tem 8K tokens/min)
+reasoning_effort = "low"
+max_output_tokens = 2000
+max_input_chars = 7000
+# Orçamento local (conservador; não conhece o consumo de outras aplicações da conta).
+max_calls_per_run = 8
+max_tokens_per_run = 40000
+max_calls_per_day = 200
+max_tokens_per_day = 150000
+request_timeout_seconds = 60
+# Se o Retry-After for maior que isso, persiste a pendência para a próxima execução.
+max_wait_seconds = 20
+
+[knowledge]
+max_file_mb = 25
+max_documents_per_run = 5
+download_timeout_seconds = 60
+# Revalidar (HEAD/condicional) materiais já baixados a cada N dias. 0 desliga.
+revalidate_every_days = 7
+chunk_chars = 1800
+chunk_overlap_chars = 200
+keep_old_versions = 2
+
+[planner]
+# Minutos disponíveis por dia da semana (seg=0 ... dom=6).
+availability_minutes = { "0" = 90, "1" = 90, "2" = 60, "3" = 90, "4" = 60, "5" = 120, "6" = 0 }
+preferred_session_minutes = 35
+min_session_minutes = 15
+# Pesos da fórmula de prioridade (explicável): score = w_deadline*urgencia + w_weight*peso + w_frequency*frequencia + w_progress*pendencia
+w_deadline = 6.0
+w_weight = 1.5
+w_frequency = 0.5
+w_progress = 1.0
+horizon_days = 21
+
+# Nomes curtos para exibição (nome oficial = nome curto); acrescente os seus.
+[display_names]
+# "PROBABILIDADE E ESTATÍSTICA" = "Probabilidade"

@@ -1,0 +1,50 @@
+{
+  "announcements": {
+    "status": "complete",
+    "records": [
+      {"source_id": "av-3001", "title": "Entrega do Trabalho 1", "published": "24/09/2026 16:00",
+       "body": "Pessoal, a entrega do Trabalho 1 será na próxima aula, impreterivelmente. Tragam o código e o relatório.",
+       "url": "demo://turma/PROG2-T01/avisos/3001"}
+    ]
+  },
+  "activities": {
+    "status": "complete",
+    "records": [
+      {"source_id": "tar-3201", "title": "Trabalho 1 — Estruturas de dados", "deadline": "na próxima aula",
+       "body": "Implementar lista encadeada e pilha com testes.", "weight": "3.0",
+       "url": "demo://turma/PROG2-T01/tarefas/3201"}
+    ]
+  },
+  "assessments": {
+    "status": "complete",
+    "records": [
+      {"source_id": "aval-3301", "title": "Prova prática 1", "deadline": "29/10/2026 14:00", "weight": "4.0",
+       "scope": "Ponteiros, alocação dinâmica, listas, pilhas e filas",
+       "url": "demo://turma/PROG2-T01/avaliacoes/3301"}
+    ]
+  },
+  "grades": {
+    "status": "failed",
+    "records": [],
+    "error": "página de login detectada ao abrir 'Notas' (sessão expirada?)"
+  },
+  "contents": {
+    "status": "partial",
+    "records": [
+      {"source_id": "cont-3401", "title": "Ponteiros e alocação dinâmica", "published": "31/08/2026",
+       "body": "malloc/free, aritmética de ponteiros, vazamentos."}
+    ],
+    "error": "paginação: página 2 de 2 não carregou (timeout)"
+  },
+  "materials": {
+    "status": "complete",
+    "records": [
+      {"source_id": "mat-3501", "title": "Guia de estilo (HTML)", "file_url": "demo://files/prog2_guia_estilo.html",
+       "file_name": "prog2_guia_estilo.html", "file_version_hint": "31/08/2026 6 KB"},
+      {"source_id": "mat-3502", "title": "Slides — Listas encadeadas", "file_url": "demo://files/prog2_slides_listas.pdf",
+       "file_name": "prog2_slides_listas.pdf", "file_version_hint": "14/09/2026 1.2 MB"},
+      {"source_id": "mat-3503", "title": "Exercícios escaneados", "file_url": "demo://files/prog2_exercicios_scan.pdf",
+       "file_name": "prog2_exercicios_scan.pdf", "file_version_hint": "21/09/2026 3.4 MB"}
+    ]
+  }
+}

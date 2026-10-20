@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<script>
+(function () {
+  var key = 'sigaa-theme', theme;
+  try { var s = localStorage.getItem(key); if (s === 'light' || s === 'dark') theme = s; } catch (e) {}
+  if (!theme) theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', theme);
+})();
+</script>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGAA Simulado</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23093a39'/%3E%3Cpath d='M8 12l8-4 8 4-8 4z' fill='%23f8ae15'/%3E%3Cpath d='M11 15v5c0 1.5 2.2 3 5 3s5-1.5 5-3v-5' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { brand: 'var(--brand)', brandDark: 'var(--brand-dark)', accent: 'var(--brand-accent)' },
+          fontFamily: { sans: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'] }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="/static/app.css?v=1">
+</head>
+<body class="min-h-full flex flex-col antialiased dash-has-sidebar">
+  <!-- Tela de token (só quando WEB_TOKEN está configurado) -->
+  <div id="gate" class="dash-gate" hidden>
+    <div class="dash-card dash-gate-card">
+      <div class="dash-gate-head">
+        <span class="dash-icon-badge dash-gate-icon"><i data-lucide="shield-check" class="w-5 h-5"></i></span>
+        <div>
+          <h1 class="dash-gate-title">Acesso ao painel</h1>
+          <p class="dash-gate-sub">Informe o <code>WEB_TOKEN</code> definido no seu <code>.env</code>.</p>
+        </div>
+      </div>
+      <form id="gate-form" class="flex flex-col gap-3" autocomplete="off">
+        <input id="gate-token" type="password" class="dash-input" placeholder="Token" required autofocus>
+        <p id="gate-error" class="dash-form-error" hidden>Token inválido.</p>
+        <button type="submit" class="dash-btn dash-btn-primary dash-btn-lg">Entrar</button>
+      </form>
+    </div>
+  </div>
+
+  <header class="dash-header dash-header--panel">
+    <div class="w-full px-4 h-16 flex items-center justify-between gap-3 relative">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <button type="button" id="sidebar-burger" class="dash-sidebar-burger lg:hidden" aria-label="Abrir menu" aria-controls="sidebar">
+          <i data-lucide="menu" class="w-5 h-5"></i>
+        </button>
+        <a href="#/" class="dash-header-logo-link" aria-label="Início">
+          <span class="dash-logo-mark"><i data-lucide="graduation-cap" class="w-4 h-4"></i></span>
+          <span class="dash-logo-text">SIGAA <span>Simulado</span></span>
+        </a>
+        <span class="dash-header-title" id="page-title">Início</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="sync-indicator" class="dash-sync-indicator" title="Última coleta">
+          <span class="refresh-dot" id="sync-dot"></span>
+          <span id="sync-label" class="hidden sm:inline">—</span>
+        </span>
+        <button type="button" id="quick-chat-btn" class="dash-header-toco-btn" aria-label="Perguntar ao agente">
+          <i data-lucide="message-circle"></i>
+          <span class="dash-header-toco-label">Perguntar</span>
+        </button>
+        <button type="button" id="theme-toggle" class="dash-theme-toggle" aria-label="Alternar tema">
+          <i data-lucide="sun" class="w-5 h-5 dash-icon-sun dash-theme-icon-hidden"></i>
+          <i data-lucide="moon" class="w-5 h-5 dash-icon-moon"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <aside id="sidebar" class="dash-sidebar" aria-label="Navegação">
+    <nav class="dash-sidebar-nav" id="sidebar-nav">
+      <a href="#/chat" class="dash-sidebar-link" data-route="chat"><i data-lucide="sparkles" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Chat</span></a>
+      <a href="#/" class="dash-sidebar-link" data-route="home"><i data-lucide="home" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Início</span></a>
+      <a href="#/plano" class="dash-sidebar-link" data-route="plano"><i data-lucide="target" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Plano de estudo</span></a>
+      <a href="#/prazos" class="dash-sidebar-link" data-route="prazos"><i data-lucide="calendar-clock" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Prazos</span></a>
+      <a href="#/disciplinas" class="dash-sidebar-link" data-route="disciplinas"><i data-lucide="book-open" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Disciplinas</span></a>
+      <a href="#/avisos" class="dash-sidebar-link" data-route="avisos"><i data-lucide="megaphone" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Avisos</span></a>
+      <a href="#/notas" class="dash-sidebar-link" data-route="notas"><i data-lucide="clipboard-check" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Notas</span></a>
+      <a href="#/materiais" class="dash-sidebar-link" data-route="materiais"><i data-lucide="paperclip" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Materiais</span></a>
+      <a href="#/novidades" class="dash-sidebar-link" data-route="novidades"><i data-lucide="history" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Novidades</span></a>
+      <a href="#/progresso" class="dash-sidebar-link" data-route="progresso"><i data-lucide="bar-chart-3" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Progresso</span></a>
+      <a href="#/buscar" class="dash-sidebar-link" data-route="buscar"><i data-lucide="search" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Buscar</span></a>
+      <div class="dash-sidebar-section">Operação</div>
+      <a href="#/operacao" class="dash-sidebar-link" data-route="operacao"><i data-lucide="activity" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Agente</span></a>
+      <a href="#/config" class="dash-sidebar-link" data-route="config"><i data-lucide="settings" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Configuração</span></a>
+    </nav>
+  </aside>
+  <div class="dash-sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <main id="main" class="flex-1 w-full dash-shell mx-auto px-4 py-6 pb-10"></main>
+
+  <!-- Drawer de detalhe (item / material) -->
+  <div id="drawer-root" class="dash-drawer-root" hidden>
+    <div class="dash-drawer-backdrop" data-drawer-close></div>
+    <div class="dash-drawer" role="dialog" aria-modal="true">
+      <button type="button" class="dash-drawer-close" data-drawer-close aria-label="Fechar"><i data-lucide="x"></i></button>
+      <div id="drawer-body"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="/static/app.js?v=1"></script>
+</body>
+</html>

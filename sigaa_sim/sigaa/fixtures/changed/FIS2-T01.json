@@ -1,0 +1,42 @@
+{
+  "_overlay_of": "baseline",
+  "announcements": {
+    "status": "complete",
+    "records": [
+      {"source_id": "av-1001", "title": "Boas-vindas e plano de curso", "published": "17/08/2026 09:12",
+       "body": "Sejam bem-vindos à disciplina. O plano de curso e o cronograma estão na aba Conteúdo. As avaliações seguem o calendário publicado.",
+       "url": "demo://turma/FIS2-T01/avisos/1001"},
+      {"source_id": "av-1002", "title": "Lista 1 disponível", "published": "21/09/2026 18:40",
+       "body": "A Lista 1 (Cap. 21 a 23) já está em Materiais. Entrega até 08/10 às 23h59 pela tarefa correspondente. Dúvidas no fórum.",
+       "url": "demo://turma/FIS2-T01/avisos/1002"},
+      {"source_id": "av-1003", "title": "Prova 1 adiada", "published": "30/09/2026 08:15",
+       "body": "Por conta do feriado, a Prova 1 fica adiada para 22/10. O conteúdo permanece o mesmo (Cap. 21 a 24). Os slides do Cap. 21/22 foram atualizados com a correção do exemplo 22.3.",
+       "url": "demo://turma/FIS2-T01/avisos/1003"}
+    ]
+  },
+  "assessments": {
+    "status": "complete",
+    "records": [
+      {"source_id": "aval-301", "title": "Prova 1", "deadline": "22/10/2026", "weight": "4.0",
+       "scope": "Cap. 21 a 24: carga elétrica, campo elétrico, Lei de Gauss e potencial elétrico",
+       "url": "demo://turma/FIS2-T01/avaliacoes/301"}
+    ]
+  },
+  "grades": {
+    "status": "complete",
+    "records": [
+      {"source_id": "nota-lista1", "title": "Lista 1", "grade_value": "8,5", "grade_max": "10", "grade_label": "Unidade 1"}
+    ]
+  },
+  "materials": {
+    "status": "complete",
+    "records": [
+      {"source_id": "mat-501", "title": "Slides — Cap. 21 e 22", "file_url": "demo://files/fis2_slides_cap21_22_v2.pdf",
+       "file_name": "fis2_slides_cap21_22.pdf", "file_version_hint": "30/09/2026 214 KB"},
+      {"source_id": "mat-502", "title": "Lista 1 (enunciados)", "file_url": "demo://files/fis2_lista1.pdf",
+       "file_name": "fis2_lista1.pdf", "file_version_hint": "21/09/2026 95 KB"},
+      {"source_id": "mat-503", "title": "Notas de aula — Potencial elétrico", "file_url": "demo://files/fis2_notas_potencial.md",
+       "file_name": "fis2_notas_potencial.md", "file_version_hint": "23/09/2026 12 KB"}
+    ]
+  }
+}

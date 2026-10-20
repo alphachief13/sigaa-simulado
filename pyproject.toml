@@ -1,0 +1,46 @@
+[project]
+name = "sigaa-simulado"
+version = "0.1.0"
+description = "SIGAA Simulado: banco acadêmico sintético + agente de estudo com planejamento por Mochila 0/1 (UFRN — Programação Avançada)."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+dependencies = [
+    "pydantic==2.13.5",
+    "pydantic-settings==2.15.0",
+    "httpx==0.28.1",
+    "groq==1.7.0",
+    "pypdf==6.19.0",
+    "python-pptx==1.0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.16.9",
+]
+
+[project.scripts]
+sigaa-sim = "sigaa_sim.cli.main:main"
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sigaa_sim"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]
+ignore = ["B008", "UP047"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: testes que tocam serviços reais (desligados por padrão)",
+]
+addopts = "-m 'not integration'"

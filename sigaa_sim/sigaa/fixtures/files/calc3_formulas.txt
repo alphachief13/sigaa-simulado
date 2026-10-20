@@ -1,0 +1,24 @@
+RESUMO DE FÓRMULAS — INTEGRAIS MÚLTIPLAS (material fictício de demonstração)
+
+Integral dupla sobre retângulo R = [a,b]x[c,d]:
+  ∬_R f dA = ∫_a^b ∫_c^d f(x,y) dy dx   (Teorema de Fubini)
+
+Coordenadas polares:
+  x = r cosθ, y = r sinθ, dA = r dr dθ
+
+Integral tripla, coordenadas cilíndricas:
+  x = r cosθ, y = r sinθ, z = z, dV = r dz dr dθ
+
+Coordenadas esféricas:
+  x = ρ sinφ cosθ, y = ρ sinφ sinθ, z = ρ cosφ, dV = ρ² sinφ dρ dφ dθ
+
+Mudança de variáveis geral:
+  ∬_R f(x,y) dA = ∬_S f(x(u,v), y(u,v)) |∂(x,y)/∂(u,v)| du dv
+
+Aplicações:
+  Volume = ∭_E dV ; Massa = ∭_E δ dV ; Centro de massa x̄ = (1/m) ∭ x δ dV
+
+Erros comuns na AP1:
+  - esquecer o jacobiano r em polares
+  - inverter limites ao trocar a ordem de integração
+  - confundir φ (ângulo com o eixo z) com θ

@@ -1,0 +1,51 @@
+{
+  "announcements": {
+    "status": "complete",
+    "records": [
+      {"source_id": "av-2001", "title": "Cronograma de avaliações", "published": "20/08/2026 10:05",
+       "body": "AP1 em 20/10, AP2 em 01/12. Conteúdo da AP1: integrais duplas e triplas, mudança de variáveis.",
+       "url": "demo://turma/CALC3-T02/avisos/2001"}
+    ]
+  },
+  "activities": {
+    "status": "empty",
+    "records": [],
+    "evidence": "mensagem 'Nenhuma tarefa cadastrada' encontrada"
+  },
+  "assessments": {
+    "status": "complete",
+    "records": [
+      {"source_id": "aval-2301", "title": "AP1", "deadline": "20/10/2026", "weight": "5.0",
+       "scope": "Integrais duplas e triplas; coordenadas polares, cilíndricas e esféricas",
+       "url": "demo://turma/CALC3-T02/avaliacoes/2301"},
+      {"source_id": "aval-2302", "title": "AP2", "deadline": "01/12/2026", "weight": "5.0",
+       "scope": "Integrais de linha e de superfície; teoremas de Green, Stokes e Gauss",
+       "url": "demo://turma/CALC3-T02/avaliacoes/2302"}
+    ]
+  },
+  "grades": {
+    "status": "empty",
+    "records": [],
+    "evidence": "tabela de notas presente sem linhas de avaliação lançada"
+  },
+  "contents": {
+    "status": "complete",
+    "records": [
+      {"source_id": "cont-2401", "title": "Integrais duplas", "published": "24/08/2026",
+       "body": "Definição, propriedades, regiões gerais, integrais iteradas."},
+      {"source_id": "cont-2402", "title": "Integrais duplas em coordenadas polares", "published": "07/09/2026",
+       "body": "Jacobiano; regiões circulares e anulares."},
+      {"source_id": "cont-2403", "title": "Integrais triplas", "published": "21/09/2026",
+       "body": "Coordenadas cilíndricas e esféricas; volume e massa."}
+    ]
+  },
+  "materials": {
+    "status": "complete",
+    "records": [
+      {"source_id": "mat-2501", "title": "Apresentação — Integrais múltiplas", "file_url": "demo://files/calc3_integrais_multiplas.pptx",
+       "file_name": "calc3_integrais_multiplas.pptx", "file_version_hint": "24/08/2026 480 KB"},
+      {"source_id": "mat-2502", "title": "Resumo de fórmulas", "file_url": "demo://files/calc3_formulas.txt",
+       "file_name": "calc3_formulas.txt", "file_version_hint": "07/09/2026 3 KB"}
+    ]
+  }
+}

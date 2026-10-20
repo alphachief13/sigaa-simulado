@@ -1,0 +1,58 @@
+{
+  "announcements": {
+    "status": "complete",
+    "records": [
+      {"source_id": "av-1001", "title": "Boas-vindas e plano de curso", "published": "17/08/2026 09:12",
+       "body": "Sejam bem-vindos à disciplina. O plano de curso e o cronograma estão na aba Conteúdo. As avaliações seguem o calendário publicado.",
+       "url": "demo://turma/FIS2-T01/avisos/1001"},
+      {"source_id": "av-1002", "title": "Lista 1 disponível", "published": "21/09/2026 18:40",
+       "body": "A Lista 1 (Cap. 21 a 23) já está em Materiais. Entrega até 08/10 às 23h59 pela tarefa correspondente. Dúvidas no fórum.",
+       "url": "demo://turma/FIS2-T01/avisos/1002"}
+    ]
+  },
+  "activities": {
+    "status": "complete",
+    "records": [
+      {"source_id": "tar-201", "title": "Lista 1 — Carga, campo e potencial", "deadline": "08/10/2026 23:59",
+       "body": "Resolver os exercícios selecionados da Lista 1 e enviar em PDF único.", "weight": "1.0",
+       "url": "demo://turma/FIS2-T01/tarefas/201"}
+    ]
+  },
+  "assessments": {
+    "status": "complete",
+    "records": [
+      {"source_id": "aval-301", "title": "Prova 1", "deadline": "15/10/2026", "weight": "4.0",
+       "scope": "Cap. 21 a 24: carga elétrica, campo elétrico, Lei de Gauss e potencial elétrico",
+       "url": "demo://turma/FIS2-T01/avaliacoes/301"}
+    ]
+  },
+  "grades": {
+    "status": "empty",
+    "records": [],
+    "evidence": "tabela de notas presente sem linhas de avaliação lançada"
+  },
+  "contents": {
+    "status": "complete",
+    "records": [
+      {"source_id": "cont-401", "title": "Carga elétrica e Lei de Coulomb", "published": "19/08/2026",
+       "body": "Cap. 21. Quantização e conservação da carga; Lei de Coulomb; princípio da superposição."},
+      {"source_id": "cont-402", "title": "Campo elétrico", "published": "26/08/2026",
+       "body": "Cap. 22. Campo de cargas pontuais e distribuições contínuas; linhas de campo; dipolo."},
+      {"source_id": "cont-403", "title": "Lei de Gauss", "published": "09/09/2026",
+       "body": "Cap. 23. Fluxo elétrico; Lei de Gauss; aplicações a simetrias planas, cilíndricas e esféricas."},
+      {"source_id": "cont-404", "title": "Potencial elétrico", "published": "23/09/2026",
+       "body": "Cap. 24. Energia potencial elétrica; potencial elétrico; superfícies equipotenciais; cálculo de V a partir de E."}
+    ]
+  },
+  "materials": {
+    "status": "complete",
+    "records": [
+      {"source_id": "mat-501", "title": "Slides — Cap. 21 e 22", "file_url": "demo://files/fis2_slides_cap21_22.pdf",
+       "file_name": "fis2_slides_cap21_22.pdf", "file_version_hint": "20/08/2026 210 KB"},
+      {"source_id": "mat-502", "title": "Lista 1 (enunciados)", "file_url": "demo://files/fis2_lista1.pdf",
+       "file_name": "fis2_lista1.pdf", "file_version_hint": "21/09/2026 95 KB"},
+      {"source_id": "mat-503", "title": "Notas de aula — Potencial elétrico", "file_url": "demo://files/fis2_notas_potencial.md",
+       "file_name": "fis2_notas_potencial.md", "file_version_hint": "23/09/2026 12 KB"}
+    ]
+  }
+}

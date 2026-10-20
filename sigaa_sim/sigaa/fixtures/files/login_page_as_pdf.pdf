@@ -1,0 +1,1 @@
+<!DOCTYPE html><html><head><title>SIGAA - Entrar no Sistema</title></head><body><form action='/sigaa/logar.do' method='post'><input name='user.login'><input name='user.senha' type='password'></form></body></html>

@@ -1,0 +1,9 @@
+{
+  "_note": "DADOS FICTÍCIOS para demonstração. Nenhuma instituição, pessoa ou disciplina real.",
+  "term": "2026.2",
+  "courses": [
+    {"source_id": "FIS2-T01", "code": "FIS0002", "name": "Física II", "professor": "Prof. Exemplo A", "url": "demo://turma/FIS2-T01"},
+    {"source_id": "CALC3-T02", "code": "MAT0003", "name": "Cálculo III", "professor": "Prof. Exemplo B", "url": "demo://turma/CALC3-T02"},
+    {"source_id": "PROG2-T01", "code": "COMP0002", "name": "Programação II", "professor": "Prof. Exemplo C", "url": "demo://turma/PROG2-T01"}
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "_overlay_of": "baseline",
+  "_note": "Cenário: sessão expirada. O adapter demo retorna NEEDS_INTERACTION na autenticação e todas as seções como 'failed'.",
+  "auth": {"status": "needs_interaction", "message": "página de login exibida após tentar reutilizar a sessão salva"}
+}
