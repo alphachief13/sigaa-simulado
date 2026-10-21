@@ -47,7 +47,10 @@ def criar_esquema(conn: sqlite3.Connection) -> None:
 
 def abrir_existente(path: Path) -> sqlite3.Connection:
     if not path.exists():
-        raise SimuladorError(f"banco simulado não encontrado em {path}; rode `sigaa-sim simulador gerar`")
+        raise SimuladorError(
+            f"banco simulado não encontrado em {path}; gere pelo painel (Controle → Preparar tudo)"
+            " ou com `sigaa-sim simulador gerar`"
+        )
     return conectar(path)
 
 

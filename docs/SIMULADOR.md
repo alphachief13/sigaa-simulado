@@ -5,13 +5,15 @@ entidades e os formatos observados no SIGAA da UFRN (turmas JSF, notícias, plan
 relatório de notas, tópicos de aula e arquivos), mas não acessa nenhum sistema real: não há
 login, rede ou credenciais.
 
-```bash
-sigaa-sim simulador gerar --semente 2026     # cria data/sigaa_simulado.db
-sigaa-sim simulador info                     # contagens, relógio, turmas do discente logado
-sigaa-sim simulador eventos                  # linha do tempo de alterações pendentes
-sigaa-sim simulador avancar --dias 3         # move o relógio e aplica eventos vencidos
-sigaa-sim simulador sessao --expirar         # simula sessão expirada (e --renovar)
-```
+Tudo é controlado pelo painel (`sigaa-sim web` → **Controle**):
+
+| No painel (Controle) | O que faz | Equivalente na CLI (opcional) |
+| --- | --- | --- |
+| **Preparar tudo** / **Gerar SIGAA** (semente, discentes, relógio inicial) | cria `data/sigaa_simulado.db` | `simulador gerar --semente 2026` |
+| **Info do simulador** | contagens, relógio, turmas do discente logado | `simulador info` |
+| **Próximos eventos** / **Todos os eventos** | linha do tempo de alterações | `simulador eventos [--todos]` |
+| **+1 hora**, **+1 dia**, **+1 semana**, **Avançar**, **Avançar até** | move o relógio e aplica eventos vencidos | `simulador avancar --dias 3` |
+| **Expirar sessão** / **Renovar sessão** | simula a sessão expirada | `simulador sessao --expirar` (e `--renovar`) |
 
 ## Do portal real para o modelo
 

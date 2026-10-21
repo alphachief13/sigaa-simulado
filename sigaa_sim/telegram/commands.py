@@ -572,6 +572,8 @@ def handle_callback(ctx: Ctx, data: str) -> tuple[MessageView, bool]:
         return grades_view(ctx), False
     if kind == "resumo":
         return digest_view(ctx, full=True), False
+    if kind == "hoje":
+        return study_view(ctx), False
     if kind == "plan":
         return study_view(ctx, full=True), False
     if kind == "done":

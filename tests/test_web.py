@@ -150,6 +150,11 @@ def test_plan_progress_search_chat(populated, settings, clock):
     assert view["title"]
     view = web_api.chat_action(populated, settings, clock, "status:full")
     assert "Disciplinas" in " ".join(view["blocks"][0]["lines"])
+    # o chip "O que eu estudo hoje?" usa o callback "hoje": não pode cair na ajuda
+    view = web_api.chat_action(populated, settings, clock, "hoje")
+    assert not view["help"]
+    assert web_api.chat_message(populated, settings, clock, "/ajuda")["help"]
+    assert web_api.chat_action(populated, settings, clock, "xyz")["help"]
     with pytest.raises(web_api.ApiError):
         web_api.chat_message(populated, settings, clock, "   ")
 
@@ -252,3 +257,37 @@ def test_run_registry_presets(settings):
     ids = {p["id"] for p in reg.presets()}
     assert {"sim-avancar-dia", "mochila"} <= ids and "sync-fixture-changed" not in ids
     assert reg.list() == [] and reg.running() is None
+
+
+def test_run_presets_params(settings):
+    """Botões com opções: parâmetros validados no servidor viram argv; nada do cliente vai cru."""
+    from sigaa_sim.web.server import RUN_PRESETS
+
+    def build(preset, params):
+        return RUN_PRESETS[preset]["build"](params, settings)
+
+    assert build("sim-avancar", {"dias": "3"}) == [["simulador", "avancar", "--dias", "3", "--horas", "0"]]
+    assert build("sim-avancar", {"ate": "2026-11-01T08:30"}) == [
+        ["simulador", "avancar", "--ate", "2026-11-01T08:30"]
+    ]
+    assert build("mochila-custom", {"exemplo": "1", "capacidade": "9", "tabela": "on"}) == [
+        ["mochila", "--exemplo", "--capacidade", "9", "--tabela"]
+    ]
+    assert build("plan", {"date": "2026-10-21", "no_ai": "on"}) == [
+        ["plan", "--date", "2026-10-21", "--no-ai"]
+    ]
+    assert build("sim-gerar", {"semente": "7", "sobrescrever": "on"}) == [
+        ["simulador", "gerar", "--semente", "7", "--sobrescrever"]
+    ]
+    # banco simulado ainda não existe: "Preparar tudo" gera, coleta e planeja
+    assert build("setup-all", {}) == [["simulador", "gerar"], ["sync", "--once", "--echo"], ["plan", "--new"]]
+    for preset, bad in (
+        ("sim-avancar", {}),
+        ("sim-avancar", {"dias": "-1"}),
+        ("sim-avancar", {"ate": "amanhã; rm -rf /"}),
+        ("mochila-custom", {"minutos": "abc"}),
+        ("plan", {"date": "--help"}),
+        ("sim-gerar", {"discentes": "99999"}),
+    ):
+        with pytest.raises(web_api.ApiError):
+            build(preset, bad)

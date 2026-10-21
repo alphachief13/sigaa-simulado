@@ -10,8 +10,8 @@ log_retention_days = 30
 
 [sigaa]
 institution = "sim"
-# "simulado" -> SIGAA Simulado (banco gerado por `sigaa-sim simulador gerar`).
-# "demo"     -> fixtures JSON mínimas (usadas pelos testes e por `sigaa-sim demo`).
+# "simulado" -> SIGAA Simulado (banco gerado pelo painel, Controle → Preparar tudo).
+# "demo"     -> fixtures JSON mínimas (usadas pelos testes e pela demo do painel).
 # Não existe perfil para o SIGAA real: este projeto não acessa nenhum portal.
 profile = "simulado"
 # Banco do SIGAA Simulado (relativo a data_dir).

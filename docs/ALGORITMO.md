@@ -63,7 +63,7 @@ de sessões de **maior valor total que cabe no tempo do dia**.
 
 ## 2. Entrada de dados
 
-1. **Origem.** O agente sincroniza com o **SIGAA Simulado** (`sigaa-sim sync`): tarefas
+1. **Origem.** O agente sincroniza com o **SIGAA Simulado** (**Coletar e processar** no painel): tarefas
    (prazo com hora), avaliações do plano de curso (data, peso e escopo), materiais e progresso.
 2. **Compromissos.** `collect_commitments` filtra tarefas e avaliações com prazo nos próximos
    21 dias e calcula a prioridade de cada uma.
@@ -73,7 +73,7 @@ de sessões de **maior valor total que cabe no tempo do dia**.
 5. **Validação da entrada.** Pesos, valores e capacidade precisam ser **inteiros ≥ 0**. Caso
    contrário, `ValueError` com o item e o campo. Isso rejeita `bool`, `float` e negativos.
 
-Entrada didática fixa: `sigaa-sim mochila --exemplo`.
+Entrada didática fixa: botão **Exemplo didático** no Controle (CLI: `sigaa-sim mochila --exemplo`).
 
 ## 3. Como foi implementado
 
@@ -104,7 +104,7 @@ para i = n..1:
 A comparação estrita (`>`) faz os empates preferirem *não* levar o item. Isso torna o resultado
 determinístico e favorece os índices menores.
 
-**Exemplo da tabela** (`sigaa-sim mochila --exemplo --tabela`, `*` = escolhido):
+**Exemplo da tabela** (**Exemplo didático** com *tabela*; CLI: `sigaa-sim mochila --exemplo --tabela`; `*` = escolhido):
 
 ```
              w=0   1   2   3   4   5   6   7

@@ -34,11 +34,29 @@ uv pip install --python .venv/bin/python -e ".[dev]"      # ou: .venv/bin/pip in
 source .venv/bin/activate
 ```
 
-## Roteiro rápido (5 minutos)
+## Como usar
+
+Um comando só:
+
+```bash
+mkdir -p ~/lab-sigaa && cd ~/lab-sigaa   # pasta onde ficam os dados (data/)
+sigaa-sim web                            # abre o painel em http://127.0.0.1:8765
+```
+
+O resto é tudo pelo painel. Na tela inicial, **Preparar tudo** gera o SIGAA Simulado, faz a
+primeira coleta e monta o plano do dia. A página **Controle** tem um botão (ou um formulário
+curto) para cada comando da CLI: coletar, avançar o relógio simulado (+1 hora, +1 dia,
++1 semana ou até uma data), ver eventos, expirar ou renovar a sessão, rodar a Mochila 0/1
+(com tabela, comparação ou a instância didática), gerar o plano, recriar o SIGAA com outra
+semente, diagnóstico e demo. A saída de cada comando aparece ali mesmo.
+
+### Pela linha de comando (opcional)
+
+Os mesmos passos, se preferir o terminal:
 
 ```bash
 mkdir -p ~/lab-sigaa && cd ~/lab-sigaa
-sigaa-sim init                         # config.toml + banco do agente
+sigaa-sim init                         # config.toml + banco do agente (opcional)
 sigaa-sim simulador gerar              # SIGAA fictício (semente 2026, relógio em 19/10/2026 09:00)
 sigaa-sim simulador info               # turmas do discente logado
 sigaa-sim sync                         # 1ª coleta (baseline)
@@ -52,11 +70,8 @@ sigaa-sim status -v
 sigaa-sim plan                         # replaneja porque os compromissos mudaram
 ```
 
-A instância didática da mochila, com a tabela de PD completa:
-
-```bash
-sigaa-sim mochila --exemplo --tabela --comparar
-```
+A instância didática da mochila, com a tabela de PD completa (no painel: **Controle → Exemplo
+didático**; no terminal: `sigaa-sim mochila --exemplo --tabela --comparar`):
 
 ```
 Mochila 0/1 (PD): valor 9, peso 7/7 u
@@ -76,7 +91,11 @@ Força bruta (2^4 subconjuntos): valor 9 — igual ao da PD
 O guloso perde 11.1% do valor ótimo nesta instância.
 ```
 
-## Comandos
+## Comandos da CLI (opcionais)
+
+Para o uso normal basta `sigaa-sim web` (`--port N`, `--no-browser`). Cada linha abaixo também tem
+botão ou formulário na página **Controle** do painel; a CLI fica para scripts e para quem prefere
+o terminal.
 
 | Comando | O que faz |
 | --- | --- |
@@ -84,13 +103,16 @@ O guloso perde 11.1% do valor ótimo nesta instância.
 | `simulador info` / `simulador eventos [--todos]` | contagens, turmas, linha do tempo |
 | `simulador avancar [--dias N] [--horas N] [--ate AAAA-MM-DD[THH:MM]]` | avança o relógio e aplica eventos |
 | `simulador sessao [--expirar\|--renovar]` | simula a sessão expirada |
+| `init` | cria `config.toml`, `.env` e o banco do agente, sem sobrescrever |
 | `sync [--no-process]` | coleta, detecta mudanças, baixa e extrai materiais |
+| `process-pending` | retoma notificações e jobs pendentes sem coletar |
 | `plan [--date] [--new] [--no-ai]` | plano do dia |
 | `mochila [--date] [--minutos N] [--tabela] [--comparar] [--exemplo]` | mostra o algoritmo sobre os dados |
 | `progress --task N --status done\|skipped [--difficulty] [--note]` | registra progresso |
 | `search termo…` | busca textual nos materiais |
 | `status [-v]` / `doctor` | saúde, pendências e configuração |
-| `web` | painel local em http://127.0.0.1:8765 |
+| `telegram-poll [--once]` | atende comandos do Telegram (opcional) |
+| `web [--host] [--port N] [--no-browser]` | **comando principal**: painel local em http://127.0.0.1:8765 |
 | `demo` | fluxo completo com as fixtures JSON mínimas (sem banco simulado) |
 
 Disponibilidade por dia da semana, pesos da prioridade e horizonte ficam em `config.toml`
@@ -108,14 +130,14 @@ sigaa_sim/
   sync.py, storage/       coleta, detecção de mudanças, persistência
   knowledge/              download/extração/busca de materiais
   telegram/, llm/, web/   opcionais: notificações, IA, painel local
-tests/                    389 testes (pytest), sem rede
+tests/                    390 testes (pytest), sem rede
 scripts/benchmark_mochila.py
 ```
 
 ## Testes e qualidade
 
 ```bash
-pytest                                      # 389 testes, ~4 s
+pytest                                      # 390 testes, ~3 s
 ruff check . && ruff format --check .
 python scripts/benchmark_mochila.py         # tempo × n·W
 ```

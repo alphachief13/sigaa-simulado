@@ -72,7 +72,8 @@ class SimuladoAdapter:
         if banco.sessao_expirada(self.conn):
             return AuthResult(
                 status=AuthStatus.NEEDS_INTERACTION,
-                message="sessão simulada expirada (use `sigaa-sim simulador sessao --renovar`)",
+                message="sessão simulada expirada (painel: Controle → Renovar sessão;"
+                " ou `sigaa-sim simulador sessao --renovar`)",
             )
         self._authed = True
         return AuthResult(status=AuthStatus.OK, message=f"sessão simulada do discente {self.matricula}")

@@ -223,7 +223,7 @@ def cmd_doctor(args, settings: Settings) -> int:
         check(
             f"banco simulado {settings.sim_db_path}",
             settings.sim_db_path.exists(),
-            "execute `sigaa-sim simulador gerar`",
+            "no painel: Controle → Preparar tudo (ou `sigaa-sim simulador gerar`)",
         )
     s = settings.secrets
     if settings.telegram.enabled:
@@ -347,7 +347,9 @@ def _demo_process(conn, settings, clock, fake_llm) -> None:
 # ----------------------------------------------------------------------- parser
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="sigaa-sim", description="SIGAA Simulado — agente de estudo sobre um SIGAA fictício"
+        prog="sigaa-sim",
+        description="SIGAA Simulado — agente de estudo sobre um SIGAA fictício. "
+        "Uso normal: `sigaa-sim web` e o resto pelo painel; os demais comandos são opcionais.",
     )
     p.add_argument("--config", help="caminho do config.toml (padrão: ./config.toml)")
     sub = p.add_subparsers(dest="cmd", required=True)

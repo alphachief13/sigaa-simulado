@@ -676,6 +676,13 @@ def search(
 
 
 # ------------------------------------------------------------------ chat
+def _chat_view(view: MessageView) -> dict:
+    # a ajuda do Telegram lista "/comandos"; no painel ela vira o menu de botões
+    d = view_dict(view)
+    d["help"] = view.title in (T.help_short().title, T.help_full().title)
+    return d
+
+
 def chat_message(conn: sqlite3.Connection, settings: Settings, clock: Clock, text: str) -> dict:
     from sigaa_sim.telegram.commands import Ctx, handle, parse_command, question_view
 
@@ -685,7 +692,7 @@ def chat_message(conn: sqlite3.Connection, settings: Settings, clock: Clock, tex
     ctx = Ctx(conn, settings, clock)
     cmd, arg = parse_command(text)
     view = handle(ctx, cmd, arg) if cmd else question_view(ctx, text)
-    return view_dict(view)
+    return _chat_view(view)
 
 
 def chat_action(conn: sqlite3.Connection, settings: Settings, clock: Clock, callback: str) -> dict:
@@ -693,7 +700,7 @@ def chat_action(conn: sqlite3.Connection, settings: Settings, clock: Clock, call
 
     ctx = Ctx(conn, settings, clock)
     view, _ = handle_callback(ctx, (callback or "")[:64])
-    return view_dict(view)
+    return _chat_view(view)
 
 
 # ------------------------------------------------------------------ operação
@@ -723,7 +730,7 @@ def ops_status(conn: sqlite3.Connection, settings: Settings, clock: Clock) -> di
             {
                 "label": "banco do SIGAA Simulado",
                 "ok": settings.sim_db_path.exists(),
-                "hint": "execute `sigaa-sim simulador gerar`",
+                "hint": "use Preparar tudo (ou Gerar SIGAA) nesta página",
             }
         )
     if settings.telegram.enabled and settings.telegram.mode == "http":

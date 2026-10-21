@@ -78,7 +78,7 @@ def cmd_avancar(args, settings: Settings) -> int:
     print(f"eventos aplicados: {len(aplicados)}")
     for ev in aplicados:
         print(f"  [{ev.tipo}] {ev.descricao}")
-    print("execute `sigaa-sim sync` para o agente perceber as mudanças")
+    print("colete de novo (Coletar e processar, no painel) para o agente perceber as mudanças")
     return 0
 
 
@@ -138,7 +138,7 @@ def cmd_mochila(args, settings: Settings) -> int:
         commitments = collect_commitments(conn, settings, day)
         conn.close()
         if not commitments:
-            print(f"nenhum compromisso no horizonte a partir de {day:%d/%m/%Y}; rode `sigaa-sim sync` antes")
+            print(f"nenhum compromisso no horizonte a partir de {day:%d/%m/%Y}; faça uma coleta antes")
             return 1
         itens = candidatas(commitments, minutes, settings)
         cap = minutes // GRANULARIDADE

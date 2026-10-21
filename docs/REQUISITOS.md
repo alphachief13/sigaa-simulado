@@ -42,9 +42,9 @@ prova foi adiada").
 | Linguagem | Python 3.12 | todo o sistema |
 | Persistência | SQLite (WAL, FTS5) | banco do SIGAA Simulado e banco do agente |
 | Modelos e configuração | Pydantic 2, TOML | contratos de dados e `config.toml` |
-| Interface | CLI (`argparse`) e web local (`http.server` + HTML/CSS/JS) | operação e painel |
+| Interface | web local (`http.server` + HTML/CSS/JS), aberta com `sigaa-sim web`; CLI (`argparse`) opcional | painel: consulta, simulação e operação |
 | Extração de texto | pypdf, python-pptx | materiais (PDF/PPTX nas fixtures) |
-| Qualidade | pytest (389 testes), ruff | validação e estilo |
+| Qualidade | pytest (390 testes), ruff | validação e estilo |
 | Ambiente | uv / venv | instalação reprodutível |
 | Opcionais (desligados por padrão) | Telegram Bot API, Groq (LLM) | notificações e texto livre; sem eles, tudo funciona |
 
@@ -75,7 +75,7 @@ que prepara cenários) e **Telegram** (sistema externo, opcional).
 | --- | --- | --- |
 | EU1 | Como operador, quero gerar um SIGAA fictício a partir de uma semente para ter sempre o mesmo cenário de estudo. | Alta |
 | EU2 | Como operador, quero avançar o relógio simulado para que provas sejam adiadas, notas lançadas e materiais trocados como num semestre real. | Alta |
-| EU3 | Como estudante, quero sincronizar minhas turmas com um comando para ter avisos, prazos, notas e materiais num só lugar. | Alta |
+| EU3 | Como estudante, quero sincronizar minhas turmas com um clique para ter avisos, prazos, notas e materiais num só lugar. | Alta |
 | EU4 | Como estudante, quero ver meus próximos prazos em ordem de data, com disciplina e tipo (prova/entrega), para não perder nenhum. | Alta |
 | EU5 | Como estudante, quero ser avisado quando um prazo mudar ou uma nota for lançada para não depender de abrir cada turma. | Alta |
 | EU6 | Como estudante, quero informar quanto tempo tenho por dia para que o plano nunca passe desse limite. | Alta |
@@ -158,13 +158,13 @@ Cada componente atende duas estórias.
 ┌──────────────────────────────────────────────────┐
 │ SIGAA SIMULADO · semente 2026 · 2026.2           │
 │ Relógio: 19/10/2026 09:00                        │
-│ [ +1 dia ] [ +1 semana ] [ ir para: ____ ]       │
+│ [ +1 hora ] [ +1 dia ] [ +1 semana ] [ até: ___ ]│
 ├──────────────────────────────────────────────────┤
 │ PRÓXIMOS EVENTOS                                 │
 │ 19/10 17:00  prazo prorrogado   Prob. e Est.     │
 │ 28/10 14:00  prova adiada       Prog. Avançada   │
 ├──────────────────────────────────────────────────┤
-│ [ Gerar de novo (nova semente) ] [ Sincronizar ] │
+│ [ Recriar SIGAA (semente) ] [ Coletar e process.]│
 └──────────────────────────────────────────────────┘
 ```
 
@@ -198,7 +198,8 @@ Cada componente atende duas estórias.
   (calcula a prioridade, resolve a mochila e valida o plano).
 - **Pré-condições:** pelo menos uma sincronização concluída (UC03); disponibilidade do dia
   configurada.
-- **Início:** o estudante executa `sigaa-sim plan` ou abre "Plano de hoje".
+- **Início:** o estudante abre "Plano de hoje" ou clica em **Gerar plano** no Controle
+  (CLI opcional: `sigaa-sim plan`).
 - **Fim:** o plano é exibido e gravado (`plans`, `study_tasks`).
 
 **Cenário principal**
@@ -227,7 +228,7 @@ Cada componente atende duas estórias.
   mínima".
 - **A5. IA habilitada:** a sugestão da IA é validada (passos 7). Se for rejeitada ou estiver
   indisponível, o sistema segue a partir do passo 4 e registra o motivo.
-- **A6. `--new`:** força uma nova versão mesmo sem mudanças.
+- **A6. Nova versão** (`--new` na CLI): força uma nova versão mesmo sem mudanças.
 
 **Regras de negócio**
 
@@ -247,7 +248,7 @@ Cada componente atende duas estórias.
   opcional).
 - **Pré-condições:** banco simulado gerado (UC01); nenhuma outra sincronização em andamento
   (trava).
-- **Início:** `sigaa-sim sync`. **Fim:** resumo "coleta: success | novos/alterados/removidos".
+- **Início:** **Coletar e processar** no Controle (CLI opcional: `sigaa-sim sync`). **Fim:** resumo "coleta: success | novos/alterados/removidos".
 
 **Cenário principal**
 
@@ -266,12 +267,12 @@ Cada componente atende duas estórias.
 
 - **A1. Primeira coleta (baseline):** grava tudo sem notificar item por item; envia um resumo.
 - **A2. Sessão expirada (UC10):** a coleta termina como `failed/needs_interaction`, nada é
-  apagado e um alerta único por dia pede `simulador sessao --renovar`.
+  apagado e um alerta único por dia pede **Renovar sessão** (CLI: `simulador sessao --renovar`).
 - **A3. Seção vazia com evidência** ("Ainda não foram lançadas notas."): status `empty`,
   sem remover itens. **Sem evidência**: status `failed`.
 - **A4. Item ausente:** só é marcado como removido após 3 coletas completas seguidas sem ele.
 - **A5. Outra sincronização em andamento:** encerra com "outra execução em andamento (pid N)", código 2.
-- **A6. Banco simulado inexistente:** "rode `sigaa-sim simulador gerar`".
+- **A6. Banco simulado inexistente:** o painel oferece **Preparar tudo** (gera o SIGAA, coleta e planeja).
 
 **Regras de negócio**
 
@@ -286,7 +287,8 @@ Cada componente atende duas estórias.
 - **Objetivos do usuário:** reproduzir a evolução de um semestre.
 - **Participantes / papéis:** Operador.
 - **Pré-condições:** banco simulado gerado.
-- **Início:** `sigaa-sim simulador avancar --dias N` ou `--ate AAAA-MM-DD[THH:MM]`.
+- **Início:** no Controle, **+1 hora / +1 dia / +1 semana**, **Avançar** (dias e horas) ou
+  **Avançar até** uma data (CLI: `sigaa-sim simulador avancar --dias N` ou `--ate AAAA-MM-DD[THH:MM]`).
 - **Fim:** lista "eventos aplicados" e lembrete de sincronizar.
 
 **Cenário principal**

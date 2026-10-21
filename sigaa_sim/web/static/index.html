@@ -1,43 +1,37 @@
 <!DOCTYPE html>
 <html lang="pt-BR" class="h-full">
-<script>
-(function () {
-  var key = 'sigaa-theme', theme;
-  try { var s = localStorage.getItem(key); if (s === 'light' || s === 'dark') theme = s; } catch (e) {}
-  if (!theme) theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  document.documentElement.setAttribute('data-theme', theme);
-})();
-</script>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SIGAA Simulado</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23093a39'/%3E%3Cpath d='M8 12l8-4 8 4-8 4z' fill='%23f8ae15'/%3E%3Cpath d='M11 15v5c0 1.5 2.2 3 5 3s5-1.5 5-3v-5' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#020d1a">
+  <link rel="icon" type="image/png" href="/static/nimbo/favicon.png">
+  <link rel="preload" as="image" href="/static/nimbo/idle.webp">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          colors: { brand: 'var(--brand)', brandDark: 'var(--brand-dark)', accent: 'var(--brand-accent)' },
+          colors: { brand: 'var(--brand)', brandDark: 'var(--brand-dark)', accent: 'var(--brand-accent)', night: 'var(--nimbo-night)', cream: 'var(--nimbo-cream)' },
           fontFamily: { sans: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'] }
         }
       }
     };
   </script>
-  <link rel="stylesheet" href="/static/app.css?v=1">
+  <link rel="stylesheet" href="/static/app.css?v=5">
 </head>
 <body class="min-h-full flex flex-col antialiased dash-has-sidebar">
   <!-- Tela de token (só quando WEB_TOKEN está configurado) -->
   <div id="gate" class="dash-gate" hidden>
     <div class="dash-card dash-gate-card">
+      <div class="dash-gate-nimbo"><span class="nimbo nimbo-bob" data-nimbo="hold" data-frame="2" data-scale="0.85"></span></div>
       <div class="dash-gate-head">
-        <span class="dash-icon-badge dash-gate-icon"><i data-lucide="shield-check" class="w-5 h-5"></i></span>
         <div>
           <h1 class="dash-gate-title">Acesso ao painel</h1>
-          <p class="dash-gate-sub">Informe o <code>WEB_TOKEN</code> definido no seu <code>.env</code>.</p>
+          <p class="dash-gate-sub">O Nimbo só abre o painel com o <code>WEB_TOKEN</code> definido no seu <code>.env</code>.</p>
         </div>
       </div>
       <form id="gate-form" class="flex flex-col gap-3" autocomplete="off">
@@ -55,8 +49,8 @@
           <i data-lucide="menu" class="w-5 h-5"></i>
         </button>
         <a href="#/" class="dash-header-logo-link" aria-label="Início">
-          <span class="dash-logo-mark"><i data-lucide="graduation-cap" class="w-4 h-4"></i></span>
-          <span class="dash-logo-text">SIGAA <span>Simulado</span></span>
+          <span class="dash-logo-mark"><span class="nimbo" data-nimbo="hero" data-scale="0.2"></span></span>
+          <span class="dash-logo-text">Nimbo<i>:</i> <span class="hidden sm:inline">SIGAA Simulado</span></span>
         </a>
         <span class="dash-header-title" id="page-title">Início</span>
       </div>
@@ -65,33 +59,25 @@
           <span class="refresh-dot" id="sync-dot"></span>
           <span id="sync-label" class="hidden sm:inline">—</span>
         </span>
-        <button type="button" id="quick-chat-btn" class="dash-header-toco-btn" aria-label="Perguntar ao agente">
-          <i data-lucide="message-circle"></i>
-          <span class="dash-header-toco-label">Perguntar</span>
-        </button>
-        <button type="button" id="theme-toggle" class="dash-theme-toggle" aria-label="Alternar tema">
-          <i data-lucide="sun" class="w-5 h-5 dash-icon-sun dash-theme-icon-hidden"></i>
-          <i data-lucide="moon" class="w-5 h-5 dash-icon-moon"></i>
-        </button>
       </div>
     </div>
   </header>
 
   <aside id="sidebar" class="dash-sidebar" aria-label="Navegação">
     <nav class="dash-sidebar-nav" id="sidebar-nav">
-      <a href="#/chat" class="dash-sidebar-link" data-route="chat"><i data-lucide="sparkles" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Chat</span></a>
       <a href="#/" class="dash-sidebar-link" data-route="home"><i data-lucide="home" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Início</span></a>
       <a href="#/plano" class="dash-sidebar-link" data-route="plano"><i data-lucide="target" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Plano de estudo</span></a>
       <a href="#/prazos" class="dash-sidebar-link" data-route="prazos"><i data-lucide="calendar-clock" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Prazos</span></a>
       <a href="#/disciplinas" class="dash-sidebar-link" data-route="disciplinas"><i data-lucide="book-open" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Disciplinas</span></a>
+      <div class="dash-sidebar-section">Acompanhar</div>
       <a href="#/avisos" class="dash-sidebar-link" data-route="avisos"><i data-lucide="megaphone" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Avisos</span></a>
       <a href="#/notas" class="dash-sidebar-link" data-route="notas"><i data-lucide="clipboard-check" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Notas</span></a>
       <a href="#/materiais" class="dash-sidebar-link" data-route="materiais"><i data-lucide="paperclip" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Materiais</span></a>
       <a href="#/novidades" class="dash-sidebar-link" data-route="novidades"><i data-lucide="history" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Novidades</span></a>
       <a href="#/progresso" class="dash-sidebar-link" data-route="progresso"><i data-lucide="bar-chart-3" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Progresso</span></a>
       <a href="#/buscar" class="dash-sidebar-link" data-route="buscar"><i data-lucide="search" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Buscar</span></a>
-      <div class="dash-sidebar-section">Operação</div>
-      <a href="#/operacao" class="dash-sidebar-link" data-route="operacao"><i data-lucide="activity" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Agente</span></a>
+      <div class="dash-sidebar-section">Sistema</div>
+      <a href="#/operacao" class="dash-sidebar-link" data-route="operacao"><i data-lucide="sliders-horizontal" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Controle</span></a>
       <a href="#/config" class="dash-sidebar-link" data-route="config"><i data-lucide="settings" class="dash-sidebar-ic"></i><span class="dash-sidebar-label">Configuração</span></a>
     </nav>
   </aside>
@@ -108,7 +94,42 @@
     </div>
   </div>
 
+  <!-- Nimbo, o companheiro: reage à navegação, a toasts, a coletas e dorme quando você some.
+       Clicar nele abre o chat flutuante; ele pula para cima da janela e reage às respostas. -->
+  <section id="nimbo-chat" class="nimbo-chat" role="dialog" aria-label="Conversa com o Nimbo" aria-hidden="true" inert>
+    <header class="nimbo-chat-head">
+      <div class="nimbo-chat-who"><b>Nimbo</b><span id="nimbo-chat-status"><i></i>pronto pra ajudar</span></div>
+      <button type="button" class="nimbo-chat-icon" id="nimbo-chat-clear" title="Limpar conversa" aria-label="Limpar conversa"><i data-lucide="eraser"></i></button>
+      <button type="button" class="nimbo-chat-icon" id="nimbo-chat-close" title="Fechar (Esc)" aria-label="Fechar"><i data-lucide="x"></i></button>
+    </header>
+    <div class="nimbo-chat-scroll" id="nimbo-chat-scroll">
+      <div class="nimbo-chat-empty" id="nimbo-chat-empty">
+        <p class="nimbo-chat-hello" id="nimbo-chat-hello">Oi! Como posso ajudar?</p>
+        <p class="nimbo-chat-lead">Escolha um atalho ou pergunte do seu jeito, até sobre o conteúdo dos materiais.</p>
+        <div id="nimbo-chat-heads"></div>
+        <div class="nimbo-chat-menu" id="nimbo-chat-menu"></div>
+      </div>
+      <div class="nimbo-chat-thread" id="nimbo-chat-thread" hidden></div>
+    </div>
+    <div class="nimbo-chat-tray" id="nimbo-chat-tray" hidden></div>
+    <form class="nimbo-chat-composer" id="nimbo-chat-form" autocomplete="off">
+      <button type="button" class="nimbo-chat-tray-btn" id="nimbo-chat-tray-btn" aria-label="Atalhos" aria-expanded="false" aria-controls="nimbo-chat-tray" title="Atalhos"><i data-lucide="layout-grid"></i></button>
+      <span class="nimbo-chat-mode" id="nimbo-chat-mode" hidden><i data-lucide="search"></i>Buscar<button type="button" id="nimbo-chat-mode-x" aria-label="Sair da busca"><i data-lucide="x"></i></button></span>
+      <textarea id="nimbo-chat-input" rows="1" placeholder="Quando é minha prova de Física II?" aria-label="Mensagem"></textarea>
+      <button type="submit" class="nimbo-chat-send" id="nimbo-chat-send" aria-label="Enviar" disabled><i data-lucide="arrow-up"></i></button>
+    </form>
+  </section>
+
+  <div id="buddy" class="nimbo-buddy" hidden>
+    <div id="buddy-bubble" class="nimbo-buddy-bubble" role="status" aria-live="polite" hidden></div>
+    <button type="button" id="buddy-body" class="nimbo-buddy-body" aria-label="Conversar com o Nimbo" aria-controls="nimbo-chat" aria-expanded="false">
+      <span class="nimbo-buddy-shadow"></span>
+      <span class="nimbo-buddy-move"><span class="nimbo-buddy-breathe"><span id="buddy-sprite" class="nimbo nimbo-buddy-sprite"></span></span></span>
+      <span class="nimbo-buddy-ping" aria-hidden="true"></span>
+    </button>
+  </div>
+
   <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
-  <script src="/static/app.js?v=1"></script>
+  <script src="/static/app.js?v=5"></script>
 </body>
 </html>

@@ -430,7 +430,10 @@ def sync_failed(last_ok: str | None, tz: ZoneInfo, detail: str | None = None) ->
 
 
 def session_expired() -> MessageView:
-    fix = "Para renovar a sessão simulada, execute `sigaa-sim simulador sessao --renovar`."
+    fix = (
+        "Para renovar a sessão simulada, use Controle → Renovar sessão no painel"
+        " (ou `sigaa-sim simulador sessao --renovar`)."
+    )
     return MessageView(title="Sessão do SIGAA expirou", blocks=[Block([fix])])
 
 

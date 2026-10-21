@@ -41,7 +41,7 @@ def cmd_progress(args, settings: Settings) -> int:
     if args.task is None:
         plan = load_plan(conn, date.fromisoformat(args.date) if args.date else clock.today())
         if not plan or not plan.id:
-            print("nenhum plano para a data; rode `sigaa-sim plan`.")
+            print("nenhum plano para a data; gere um (Gerar plano, no painel).")
             return 1
         for r in plan_tasks_rows(conn, plan.id):
             print(
@@ -88,7 +88,9 @@ def cmd_telegram_poll(args, settings: Settings) -> int:
 def cmd_web(args, settings: Settings) -> int:
     from sigaa_sim.web.server import serve
 
-    return serve(settings, host=args.host, port=args.port, insecure=args.insecure)
+    return serve(
+        settings, host=args.host, port=args.port, insecure=args.insecure, browser=not args.no_browser
+    )
 
 
 def register(sub) -> None:
@@ -117,7 +119,9 @@ def register(sub) -> None:
     s.add_argument("--once", action="store_true", help="processa um lote e sai")
     s.set_defaults(fn=cmd_telegram_poll)
 
-    s = sub.add_parser("web", help="interface web local (painel + chat + operação)")
+    s = sub.add_parser(
+        "web", help="painel local: o comando principal (gera, coleta, avança o tempo, planeja)"
+    )
     s.add_argument("--host", default="127.0.0.1", help="endereço (padrão: 127.0.0.1)")
     s.add_argument("--port", type=int, default=8765, help="porta (padrão: 8765)")
     s.add_argument(
@@ -125,4 +129,5 @@ def register(sub) -> None:
         action="store_true",
         help="permite escutar fora do loopback sem WEB_TOKEN (não recomendado)",
     )
+    s.add_argument("--no-browser", action="store_true", help="não abre o navegador automaticamente")
     s.set_defaults(fn=cmd_web)

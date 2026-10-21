@@ -1,7 +1,8 @@
 /* SIGAA Study Agent — painel web (SPA por hash, sem framework).
  *
- * Telas: chat, início, plano, prazos, disciplinas, avisos, notas, materiais, novidades,
+ * Telas: início, plano, prazos, disciplinas, avisos, notas, materiais, novidades,
  * progresso, buscar, operação, config. Tudo vem de /api/*; nada é renderizado sem escapar.
+ * O Nimbo (mascote) usa as tiras de static/nimbo/: um companheiro flutuante que abre o chat + poses nas telas.
  */
 (function () {
   'use strict';
@@ -12,6 +13,26 @@
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const icons = () => { if (window.lucide && lucide.createIcons) lucide.createIcons(); };
   const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+  // ------------------------------------------------------------------ Nimbo
+  // tira → [quadros, lado nativo do quadro em px, centro x do corpo (fração do quadro)]
+  const NIMBO = {
+    hero: [1, 185, 0.497], idle: [5, 92, 0.5], blink: [3, 90, 0.5], walk: [5, 104, 0.49], run: [4, 106, 0.5],
+    jump: [3, 149, 0.497], look: [5, 95, 0.495], express: [5, 92, 0.5], emotion: [4, 107, 0.495],
+    interact: [5, 122, 0.459], hold: [4, 123, 0.496], telegram: [4, 142, 0.479], sleep: [3, 101, 0.495],
+    notify: [1, 112, 0.455], effects: [5, 132, 0.515],
+  };
+  function nimboStyle(sheet, frame, scale) {
+    const [n, size] = NIMBO[sheet];
+    return `--nimbo-n:${n};--nimbo-s:${size};--nimbo-f:${frame || 0};${scale != null ? `--nimbo-scale:${scale};` : ''}background-image:url(/static/nimbo/${sheet}.webp)`;
+  }
+  function nimbo(sheet, frame, scale, cls, dur) {
+    return `<span class="nimbo ${cls || ''}" style="${nimboStyle(sheet, frame, scale)}${dur ? `;--nimbo-dur:${dur}` : ''}" aria-hidden="true"></span>`;
+  }
+  document.querySelectorAll('[data-nimbo]').forEach((el) => {
+    el.setAttribute('style', nimboStyle(el.dataset.nimbo, Number(el.dataset.frame) || 0, el.dataset.scale));
+    el.setAttribute('aria-hidden', 'true');
+  });
 
   let toastHost = null;
   function toast(msg, variant) {
@@ -27,6 +48,7 @@
     el.textContent = msg;
     toastHost.appendChild(el);
     setTimeout(() => { el.classList.add('is-leaving'); setTimeout(() => el.remove(), 220); }, 4000);
+    if (variant === 'err') buddy.oops(); else buddy.cheer();
   }
 
   function fmtDateTime(iso) {
@@ -72,7 +94,11 @@
     const [l, v] = map[st] || [st, 'light'];
     return badge(l, v);
   }
-  function empty(msg, icon) { return `<div class="dash-empty"><i data-lucide="${icon || 'inbox'}"></i>${esc(msg)}</div>`; }
+  // vazio = Nimbo cochilando; erro = Nimbo confuso
+  function empty(msg, icon) {
+    const art = /^alert/.test(icon || '') ? nimbo('emotion', 2, 0.6) : nimbo('sleep', 0, 0.55, 'nimbo-loop', '2.7s');
+    return `<div class="dash-empty">${art}${esc(msg)}</div>`;
+  }
   function skeleton(n, h) { return Array.from({ length: n || 3 }, () => `<div class="dash-skeleton mb-3" style="min-height:${h || 4}rem"></div>`).join(''); }
   function intro(title, sub, actions) {
     return `<div class="dash-page-intro"><div><h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</div>${actions ? `<div class="dash-page-actions">${actions}</div>` : ''}</div>`;
@@ -108,26 +134,8 @@
     $('gate-error').hidden = true;
     const token = $('gate-token').value.trim();
     const res = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
-    if (res.ok) { hideGate(); $('gate-token').value = ''; route(); refreshIndicator(); } else { $('gate-error').hidden = false; }
+    if (res.ok) { hideGate(); $('gate-token').value = ''; buddy.start(); route(); refreshIndicator(); } else { $('gate-error').hidden = false; }
   });
-
-  // ------------------------------------------------------------------ theme
-  (function initTheme() {
-    const key = 'sigaa-theme';
-    const apply = (t) => {
-      document.documentElement.setAttribute('data-theme', t);
-      const btn = $('theme-toggle');
-      btn.querySelector('.dash-icon-sun').classList.toggle('dash-theme-icon-hidden', t !== 'dark');
-      btn.querySelector('.dash-icon-moon').classList.toggle('dash-theme-icon-hidden', t !== 'light');
-    };
-    let cur = document.documentElement.getAttribute('data-theme') || 'light';
-    apply(cur);
-    $('theme-toggle').addEventListener('click', () => {
-      cur = cur === 'dark' ? 'light' : 'dark';
-      try { localStorage.setItem(key, cur); } catch (e) { /* ignore */ }
-      apply(cur); icons();
-    });
-  })();
 
   // ---------------------------------------------------------------- sidebar
   (function initSidebar() {
@@ -136,13 +144,343 @@
     bg.addEventListener('click', () => { sb.classList.toggle('is-open'); bd.classList.toggle('is-open'); });
     bd.addEventListener('click', close);
     sb.querySelectorAll('a').forEach((a) => a.addEventListener('click', close));
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { close(); closeDrawer(); } });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (!$('drawer-root').hidden) closeDrawer(); else nimboChat.close();
+      close();
+    });
+  })();
+
+  // ---------------------------------------------------------- companheiro
+  // Máquina de estados simples: uma "timeline" de poses por vez (a nova cancela a anterior);
+  // entre ações, comportamentos ambientes (piscar, olhar em volta); sem interação, cochila.
+  // Clicar nele abre o chat: ele pula para cima da janela e reage enquanto você conversa.
+  let lastOverview = null;
+  const buddy = (() => {
+    const root = $('buddy'), body = $('buddy-body'), sprite = $('buddy-sprite'), bubble = $('buddy-bubble');
+    const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const SLEEP_AFTER = 90000;
+    let timeline = 0, acting = false, asleep = false, napping = false, working = false, started = false, chatting = false;
+    let lastInput = Date.now(), ambientTimer = null, bubbleTimer = null, listenTimer = null;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    function pose(sheet, frame) {
+      sprite.style.cssText = `${nimboStyle(sheet, frame, 0.8)};transform:translateX(${-NIMBO[sheet][2] * 100}%)`;
+    }
+    function base() {
+      if (asleep) return pose('sleep', 0);
+      if (working) return pose('run', 0);
+      pose('idle', 1);
+    }
+    function fx(cls, ms) {
+      if (still) return;
+      root.classList.remove(cls); void root.offsetWidth; root.classList.add(cls);
+      setTimeout(() => root.classList.remove(cls), ms);
+    }
+    // toca uma sequência [[tira, quadro, ms], ...]; hold mantém a última pose
+    async function play(steps, hold) {
+      const my = ++timeline; acting = true;
+      for (const [sheet, frame, ms] of steps) {
+        if (my !== timeline) return false;
+        pose(sheet, frame);
+        await wait(still ? Math.min(ms, 400) : ms);
+      }
+      if (my !== timeline) return false;
+      acting = !!hold;
+      if (!hold) base();
+      return true;
+    }
+    async function loop(steps) {
+      const my = ++timeline; acting = true;
+      while (my === timeline) {
+        for (const [sheet, frame, ms] of steps) { if (my !== timeline) return; pose(sheet, frame); await wait(ms); }
+      }
+    }
+    function release() { timeline++; acting = false; base(); }
+
+    // ------- balão
+    function say(html, opts) {
+      opts = opts || {};
+      if (chatting) return;
+      clearTimeout(bubbleTimer);
+      const acts = (opts.actions || []).map((a) => a.href
+        ? `<a href="${esc(a.href)}" data-bubble-close>${esc(a.label)}</a>`
+        : `<button type="button" data-bubble-act="${esc(a.act)}">${esc(a.label)}</button>`).join('');
+      bubble.innerHTML = `<span class="nimbo-buddy-bubble-name">Nimbo</span>${html}${acts ? `<div class="nimbo-buddy-bubble-actions">${acts}</div>` : ''}`;
+      bubble.classList.remove('is-leaving'); bubble.hidden = false;
+      bubbleTimer = setTimeout(hush, opts.ms || (acts ? 9000 : 5500));
+    }
+    function hush() {
+      clearTimeout(bubbleTimer);
+      if (bubble.hidden) return;
+      bubble.classList.add('is-leaving');
+      bubbleTimer = setTimeout(() => { bubble.hidden = true; bubble.classList.remove('is-leaving'); if (acting && !working) release(); }, 200);
+    }
+    bubble.addEventListener('click', (e) => {
+      if (e.target.closest('[data-bubble-close]')) hush();
+      const act = e.target.closest('[data-bubble-act]');
+      if (act && act.dataset.bubbleAct === 'chat') { hush(); nimboChat.open(); }
+    });
+
+    // ------- sono
+    function sleep(manual) {
+      if (asleep) return;
+      asleep = true; napping = !!manual; hush();
+      root.classList.add('is-asleep');
+      play([['blink', 0, 600], ['emotion', 1, 500], ['sleep', 0, 300]]).then((ok) => {
+        if (ok && asleep && !still) loop([['sleep', 0, 1100], ['sleep', 1, 900], ['sleep', 2, 1100]]);
+      });
+    }
+    function wake() {
+      if (!asleep) return;
+      asleep = false; napping = false; root.classList.remove('is-asleep');
+      fx('is-hop', 560);
+      play([['notify', 0, 650], ['blink', 0, 140], ['idle', 1, 300], ['blink', 0, 120]]);
+    }
+
+    // ------- ambiente
+    const AMBIENT = [
+      [5, [['blink', 0, 130]]],
+      [2, [['blink', 0, 110], ['idle', 1, 140], ['blink', 0, 110]]],
+      [2, [['look', 0, 420], ['look', 1, 380], ['look', 2, 380], ['look', 3, 380], ['look', 4, 420], ['blink', 0, 120]]],
+      [2, [['idle', 2, 600], ['idle', 3, 600], ['idle', 4, 700], ['blink', 0, 120]]],
+      [1, [['express', 0, 900], ['idle', 0, 500]]],
+      [1, [['express', 3, 700], ['express', 4, 700]]],
+      [1, [['walk', 0, 120], ['walk', 1, 120], ['walk', 2, 120], ['walk', 3, 120], ['walk', 4, 120], ['walk', 0, 120]]],
+    ];
+    function ambient() {
+      clearTimeout(ambientTimer);
+      ambientTimer = setTimeout(ambient, 2600 + Math.random() * 4200);
+      if (!started || document.hidden) return;
+      if (!asleep && Date.now() - lastInput > SLEEP_AFTER) { sleep(false); return; }
+      if (asleep || acting || working || still) return;
+      let r = Math.random() * AMBIENT.reduce((a, x) => a + x[0], 0);
+      const pick = AMBIENT.find((x) => (r -= x[0]) < 0) || AMBIENT[0];
+      play(pick[1]);
+    }
+    const touch = () => { lastInput = Date.now(); if (asleep && !napping) wake(); };
+    ['pointermove', 'keydown', 'scroll', 'touchstart'].forEach((ev) => window.addEventListener(ev, touch, { passive: true }));
+
+    body.addEventListener('mouseenter', () => { if (!acting && !asleep && !working) pose('interact', 1); });
+    body.addEventListener('mouseleave', () => { if (!acting && !asleep) base(); });
+    body.addEventListener('click', () => {
+      lastInput = Date.now();
+      if (asleep) wake();
+      hush();
+      nimboChat.toggle();
+    });
+
+    return {
+      start() {
+        if (started) return;
+        started = true; root.hidden = false; base();
+        let met = false;
+        try { met = localStorage.getItem('nimbo-met') === '1'; localStorage.setItem('nimbo-met', '1'); } catch (e) { /* ignore */ }
+        if (!still) root.classList.add('is-entering');
+        setTimeout(() => root.classList.remove('is-entering'), 950);
+        play([['effects', 0, 380], ['effects', 1, 320], ['jump', 2, 160], ['express', 0, 700], ['blink', 0, 130]]).then(() => {
+          if (!met) {
+            const h = new Date().getHours();
+            say(`${h < 5 || h >= 18 ? 'Boa noite' : h < 12 ? 'Bom dia' : 'Boa tarde'}! Eu sou o <b>Nimbo</b>, seu jerimum de confiança no SIGAA. Clica em mim pra conversar.`, { ms: 8000, actions: [{ act: 'chat', label: 'Conversar' }] });
+            play([['interact', 2, 1600]]);
+          }
+        });
+        ambient();
+      },
+      walk() { if (started && !asleep && !working) play([['walk', 0, 110], ['walk', 1, 110], ['walk', 2, 110], ['walk', 3, 110], ['walk', 4, 110]]); },
+      cheer() {
+        if (!started) return;
+        if (asleep) wake();
+        fx('is-hop', 560);
+        play([['express', 1, 260], ['effects', 3, 900], ['express', 0, 500]]);
+      },
+      oops() {
+        if (!started) return;
+        if (asleep) wake();
+        fx('is-wiggle', 520);
+        play([['emotion', 2, 1300], ['emotion', 1, 500]]);
+      },
+      idea() { if (started) { fx('is-hop', 560); play([['effects', 4, 1400], ['express', 0, 500]]); } },
+      news(html) {
+        if (!started) return;
+        if (asleep) wake();
+        play([['telegram', 0, 700], ['telegram', 2, 700], ['telegram', 3, 1000]]);
+        say(html, { actions: [{ href: '#/novidades', label: 'Ver novidades' }] });
+      },
+      working(on) {
+        if (!started || working === !!on) return;
+        working = !!on;
+        if (working) {
+          if (asleep) wake();
+          say('Correndo no SIGAA, já volto!', { ms: 3000 });
+          if (!still) loop([['run', 0, 95], ['run', 1, 95], ['run', 2, 95], ['run', 3, 95]]); else pose('run', 0);
+        } else release();
+      },
+      // chat aberto: sobe na janela acenando; fechado: desce de volta pro canto
+      chat(on) {
+        if (chatting === !!on) return;
+        chatting = !!on;
+        root.classList.toggle('is-chatting', chatting);
+        body.setAttribute('aria-expanded', String(chatting));
+        if (!started) return;
+        hush(); fx('is-hop', 560);
+        if (chatting) play([['jump', 0, 110], ['jump', 1, 260], ['jump', 2, 140], ['interact', 2, 1100], ['blink', 0, 130]]);
+        else play([['jump', 1, 220], ['jump', 2, 160], ['blink', 0, 130]]);
+      },
+      // digitando: ele presta atenção
+      listen() {
+        lastInput = Date.now();
+        if (!started || acting || asleep || working) return;
+        pose('interact', 1);
+        clearTimeout(listenTimer);
+        listenTimer = setTimeout(() => { if (!acting && !asleep && !working) base(); }, 1400);
+      },
+      // esperando a resposta: olha em volta, pensando
+      thinking() {
+        if (!started) return;
+        if (asleep) wake();
+        clearTimeout(listenTimer);
+        if (still) { ++timeline; acting = true; pose('look', 2); }
+        else loop([['look', 0, 320], ['look', 1, 280], ['look', 2, 360], ['look', 3, 280], ['look', 4, 320], ['blink', 0, 120]]);
+      },
+      answered(ok) {
+        if (!started) return;
+        if (!ok) { this.oops(); return; }
+        fx('is-hop', 560);
+        play([['express', 1, 240], ['express', 0, 800], ['blink', 0, 130]]);
+      },
+      say,
+    };
+  })();
+
+  // ------------------------------------------------------------------ chat
+  // Janela flutuante presa ao Nimbo: sobrevive à navegação e usa o mesmo roteador do Telegram.
+  // No lugar de "/comandos", atalhos clicáveis; menções a /comando nas respostas viram botões.
+  const nimboChat = (() => {
+    const panel = $('nimbo-chat'), form = $('nimbo-chat-form'), input = $('nimbo-chat-input'), send = $('nimbo-chat-send');
+    const thread = $('nimbo-chat-thread'), emptyEl = $('nimbo-chat-empty'), scroll = $('nimbo-chat-scroll'), status = $('nimbo-chat-status');
+    const tray = $('nimbo-chat-tray'), trayBtn = $('nimbo-chat-tray-btn'), mode = $('nimbo-chat-mode');
+    const PLACEHOLDER = input.placeholder;
+    // comando → [rótulo, ícone, descrição]
+    const SHORTCUTS = {
+      hoje: ['Estudar hoje', 'target', 'próximo passo do plano'],
+      prazos: ['Prazos', 'calendar-clock', 'entregas e provas'],
+      notas: ['Notas', 'clipboard-check', 'notas lançadas'],
+      resumo: ['Novidades', 'sparkles', 'o que mudou'],
+      avisos: ['Avisos', 'megaphone', 'dos professores'],
+      materiais: ['Materiais', 'paperclip', 'arquivos das turmas'],
+      disciplinas: ['Disciplinas', 'book-open', 'suas turmas'],
+      buscar: ['Buscar', 'search', 'nos materiais'],
+      status: ['Status', 'activity', 'saúde do agente'],
+    };
+    let open = false, busy = false, searching = false;
+
+    const tiles = (compact) => Object.entries(SHORTCUTS).map(([cmd, [label, icon, hint]], i) =>
+      `<button type="button" class="nimbo-chat-tile" data-cmd="${cmd}" style="--i:${i}"><i data-lucide="${icon}"></i><b>${esc(label)}</b>${compact ? '' : `<small>${esc(hint)}</small>`}</button>`).join('');
+    tray.innerHTML = tiles(true);
+
+    function hello() {
+      const h = new Date().getHours(), ov = lastOverview;
+      const d = ov && ov.next_deadlines && ov.next_deadlines[0];
+      $('nimbo-chat-hello').textContent = `${h < 5 || h >= 18 ? 'Boa noite' : h < 12 ? 'Bom dia' : 'Boa tarde'}! Como posso ajudar?`;
+      $('nimbo-chat-heads').innerHTML = d ? `<button type="button" class="nimbo-chat-heads" data-cmd="prazos"><i data-lucide="alarm-clock"></i><span>Próximo prazo: <b>${esc(d.title)}</b> (${esc(d.course)}), ${esc(d.relative)}.</span></button>` : '';
+      $('nimbo-chat-menu').innerHTML = tiles(false);
+      icons();
+    }
+    function setOpen(v) {
+      if (open === v) return;
+      open = v;
+      panel.classList.toggle('is-open', v);
+      panel.setAttribute('aria-hidden', String(!v));
+      panel.inert = !v;
+      buddy.chat(v);
+      if (v) { if (!emptyEl.hidden) hello(); setTimeout(() => input.focus(), 280); } else { showTray(false); if (panel.contains(document.activeElement)) $('buddy-body').focus(); }
+    }
+    function showTray(v) {
+      tray.hidden = !v; trayBtn.classList.toggle('is-on', v); trayBtn.setAttribute('aria-expanded', String(v));
+      if (v) icons();
+    }
+    function searchMode(v) {
+      searching = v; mode.hidden = !v;
+      input.placeholder = v ? 'O que procurar nos materiais?' : PLACEHOLDER;
+      if (v) input.focus();
+    }
+    const setStatus = (text, cls) => { status.className = cls || ''; status.innerHTML = `<i></i>${esc(text)}`; };
+    const grow = () => { input.style.height = 'auto'; input.style.height = `${Math.min(input.scrollHeight, 128)}px`; };
+    const row = (side, html) => {
+      emptyEl.hidden = true; thread.hidden = false;
+      const r = document.createElement('div'); r.className = `nimbo-chat-row is-${side}`;
+      r.innerHTML = `<div class="nimbo-chat-bubble">${html}</div>`;
+      thread.appendChild(r); icons(); scroll.scrollTop = scroll.scrollHeight; return r;
+    };
+    // "/prazos" no texto (já escapado) vira um botão do atalho
+    const cmdPills = (h) => h.replace(/\/([a-z]+)\b/g, (m, cmd) => SHORTCUTS[cmd]
+      ? `<button type="button" class="nimbo-chat-cmd" data-cmd="${cmd}"><i data-lucide="${SHORTCUTS[cmd][1]}"></i>${esc(SHORTCUTS[cmd][0])}</button>` : m);
+    const viewHtml = (v) => {
+      if (v.help) return `<div class="nimbo-chat-title">Posso te ajudar com isso aqui:</div><div class="nimbo-chat-menu is-inline">${tiles(true)}</div><div class="nimbo-chat-footer">Ou pergunte do seu jeito, tipo “quando é a prova de Física?”.</div>`;
+      const bold = (line, bolds) => { let h = esc(line); (bolds || []).forEach((b) => { if (b) h = h.split(esc(b)).join(`<b>${esc(b)}</b>`); }); return cmdPills(h); };
+      let h = `<div class="nimbo-chat-title">${v.emoji ? esc(v.emoji) + ' ' : ''}${cmdPills(esc(v.title))}</div>`;
+      if (v.subtitle) h += `<div class="nimbo-chat-subtitle">${cmdPills(esc(v.subtitle))}</div>`;
+      (v.blocks || []).forEach((b) => { h += `<div class="nimbo-chat-block ${b.italic ? 'is-italic' : ''}">${b.lines.map((l) => `<p>${bold(l, b.bold)}</p>`).join('')}</div>`; });
+      if (v.footer) h += `<div class="nimbo-chat-footer">${cmdPills(esc(v.footer))}</div>`;
+      if (v.buttons && v.buttons.length) h += `<div class="nimbo-chat-actions">${v.buttons.map((b) => `<button type="button" class="nimbo-chat-chip" data-callback="${esc(b.callback)}">${esc(b.label)}</button>`).join('')}</div>`;
+      return h;
+    };
+    const setBusy = (v) => { busy = v; input.disabled = v; send.disabled = v || !input.value.trim(); };
+    async function ask(path, body, userText) {
+      if (busy) return;
+      showTray(false);
+      thread.querySelectorAll('[data-callback]').forEach((b) => { b.disabled = true; });
+      if (userText) row('user', `<p>${esc(userText)}</p>`);
+      input.value = ''; grow(); setBusy(true);
+      setStatus('pensando…', 'is-busy'); buddy.thinking();
+      const typing = row('bot', '<span class="nimbo-chat-typing"><i></i><i></i><i></i></span>');
+      try {
+        const r = await post(path, body);
+        typing.remove(); row('bot', viewHtml(r.view)); buddy.answered(true);
+      } catch (e) {
+        typing.remove(); row('bot', `<p>Não consegui responder agora <span class="nimbo-chat-muted">(${esc(e.message)})</span>.</p>`); buddy.answered(false);
+      } finally { setBusy(false); setStatus('pronto pra ajudar'); if (open) input.focus(); }
+    }
+    function runCmd(cmd) {
+      if (busy) return;
+      if (cmd === 'buscar') { showTray(false); searchMode(true); return; }
+      ask('chat', { text: `/${cmd}` }, SHORTCUTS[cmd] ? SHORTCUTS[cmd][0] : cmd);
+    }
+    const submit = () => {
+      const t = input.value.trim();
+      if (!t) return;
+      if (searching) { searchMode(false); ask('chat', { text: `/buscar ${t}` }, `Buscar: ${t}`); } else ask('chat', { text: t }, t);
+    };
+    input.addEventListener('input', () => { grow(); send.disabled = busy || !input.value.trim(); buddy.listen(); });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+      if (e.key === 'Backspace' && searching && !input.value) searchMode(false);
+    });
+    form.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
+    panel.addEventListener('click', (e) => {
+      const c = e.target.closest('[data-cmd]');
+      if (c) { runCmd(c.dataset.cmd); return; }
+      const b = e.target.closest('[data-callback]');
+      if (b && !b.disabled) ask('chat/action', { callback: b.dataset.callback }, b.textContent.trim());
+    });
+    trayBtn.addEventListener('click', () => showTray(tray.hidden));
+    $('nimbo-chat-mode-x').addEventListener('click', () => searchMode(false));
+    $('nimbo-chat-close').addEventListener('click', () => setOpen(false));
+    $('nimbo-chat-clear').addEventListener('click', () => { if (busy) return; thread.innerHTML = ''; thread.hidden = true; emptyEl.hidden = false; searchMode(false); hello(); input.focus(); });
+
+    return { open: () => setOpen(true), close: () => setOpen(false), toggle: () => setOpen(!open) };
   })();
 
   // ------------------------------------------------------------ indicador
   async function refreshIndicator() {
     try {
       const ov = await api('overview');
+      const prev = lastOverview;
+      lastOverview = ov;
+      if (prev && ov.last_success_at && ov.last_success_at !== prev.last_success_at && !location.hash.startsWith('#/operacao')) {
+        buddy.news(`Coleta nova chegou! ${ov.kpis.events_7d ? `<b>${ov.kpis.events_7d}</b> novidade(s) na semana.` : 'Nada de novo, pode respirar.'}`);
+      }
       const dot = $('sync-dot'), lbl = $('sync-label');
       const st = ov.last_run && ov.last_run.status;
       dot.className = 'refresh-dot ' + (st === 'failed' ? 'is-bad' : st === 'partial' ? 'is-warn' : st === 'running' ? 'is-loading' : '');
@@ -236,10 +574,9 @@
   const main = $('main');
   const views = {};
 
-  function setPage(title, isChat) {
+  function setPage(title) {
     $('page-title').textContent = title;
     document.title = `${title} · SIGAA Simulado`;
-    document.body.classList.toggle('is-chat', !!isChat);
   }
   function render(html) { main.innerHTML = `<div class="dash-animate">${html}</div>`; icons(); }
 
@@ -248,16 +585,16 @@
     setPage('Início');
     render(skeleton(1, 8) + `<div class="dash-kpi-grid mb-4">${skeleton(4, 6).replace(/mb-3/g, '')}</div>`);
     const ov = await api('overview');
+    lastOverview = ov;
     const k = ov.kpis;
     const alerts = [];
-    if (!ov.last_run) alerts.push(`<div class="dash-alert dash-alert-info"><i data-lucide="info"></i><span>Nenhuma coleta ainda. Vá em <a href="#/operacao" class="underline">Agente</a> e execute <b>Coletar e processar</b>.</span></div>`);
     if (ov.last_run && ov.last_run.status === 'failed') alerts.push(`<div class="dash-alert dash-alert-danger"><i data-lucide="alert-circle"></i><span>Última coleta falhou${ov.last_run.error ? ': ' + esc(ov.last_run.error) : ''}. Dados mostrados são de ${esc(fmtDateTime(ov.last_success_at))}.</span></div>`);
     if (ov.sections_bad.length) alerts.push(`<div class="dash-alert dash-alert-warn"><i data-lucide="alert-triangle"></i><span>${ov.sections_bad.length} seção(ões) com falha na última coleta: ${esc(ov.sections_bad.slice(0, 3).map((s) => `${s.course}/${s.section}`).join(', '))}${ov.sections_bad.length > 3 ? '…' : ''}</span></div>`);
     if (k.jobs_pending > 0) alerts.push(`<div class="dash-alert dash-alert-info"><i data-lucide="clock"></i><span>${k.jobs_pending} pendência(s) de processamento (downloads/IA). <a href="#/operacao" class="underline">Processar agora</a>.</span></div>`);
 
     const kpis = [
-      { label: 'Prazos em 7 dias', value: k.deadlines_7d, sub: `${k.deadlines_30d} em 30 dias`, icon: 'calendar-clock', href: '#/prazos', accent: k.deadlines_7d > 0 ? '#ef4444' : null },
-      { label: 'Novidades (7 dias)', value: k.events_7d, sub: `${k.grades_7d} nota(s)`, icon: 'history', href: '#/novidades', accent: '#3b82f6' },
+      { label: 'Prazos em 7 dias', value: k.deadlines_7d, sub: `${k.deadlines_30d} em 30 dias`, icon: 'calendar-clock', href: '#/prazos', accent: k.deadlines_7d > 0 ? '#f58a1f' : null },
+      { label: 'Novidades (7 dias)', value: k.events_7d, sub: `${k.grades_7d} nota(s)`, icon: 'history', href: '#/novidades', accent: '#2fb79a' },
       { label: 'Disciplinas', value: k.courses, sub: `${k.items} itens acompanhados`, icon: 'book-open', href: '#/disciplinas' },
       { label: 'Materiais', value: `${k.materials_downloaded}/${k.materials_total}`, sub: 'baixados', icon: 'paperclip', href: '#/materiais' },
     ];
@@ -283,21 +620,54 @@
       planHtml = `<p class="text-sm text-slate-500 mb-3">Ainda não há plano para hoje.</p><a href="#/plano" class="dash-btn dash-btn-primary"><i data-lucide="sparkles"></i>Gerar plano de hoje</a>`;
     }
 
-    render(`${intro('Seu dia acadêmico', `${ov.institution.toUpperCase()} · perfil ${ov.profile} · ${ov.last_success_at ? 'última coleta ' + fmtDateTime(ov.last_success_at) : 'sem coleta concluída'}`)}
+    render(`${nimboHero(ov)}
       ${alerts.length ? `<div class="flex flex-col gap-2 mb-4">${alerts.join('')}</div>` : ''}
       <div class="dash-kpi-grid mb-5">${kpiHtml}</div>
-      <section class="mb-5"><h2 class="dash-section-title">O que fazer agora?</h2><nav class="dash-quick-actions">
-        <a href="#/chat" class="dash-quick-action dash-quick-action-primary"><i data-lucide="sparkles"></i>Perguntar ao agente</a>
-        <a href="#/plano" class="dash-quick-action"><i data-lucide="target"></i>Plano de estudo</a>
-        <a href="#/prazos" class="dash-quick-action"><i data-lucide="calendar-clock"></i>Ver prazos</a>
-        <a href="#/buscar" class="dash-quick-action"><i data-lucide="search"></i>Buscar nos materiais</a>
-        <a href="#/operacao" class="dash-quick-action"><i data-lucide="refresh-cw"></i>Coletar agora</a></nav></section>
       <div class="dash-grid-3">
         ${card('Próximos prazos', 'calendar-clock', deadlines, `<a href="#/prazos" class="dash-btn dash-btn-ghost dash-btn-sm">ver todos</a>`)}
         ${card('Estudo de hoje', 'target', planHtml)}
         ${card('Novidades recentes', 'history', events, `<a href="#/novidades" class="dash-btn dash-btn-ghost dash-btn-sm">ver todas</a>`)}
       </div>`);
   };
+
+  // o humor do Nimbo no banner segue o dia: prazo colado → alerta; semana cheia → prancheta;
+  // plano concluído → brilhos; semana livre → acenando
+  function nimboHero(ov) {
+    const k = ov.kpis, d = ov.next_deadlines[0], h = new Date().getHours();
+    const greet = h < 5 || h >= 18 ? 'Boa noite' : h < 12 ? 'Bom dia' : 'Boa tarde';
+    const planDone = ov.plan && ov.plan.tasks && ov.plan.done >= ov.plan.tasks;
+    let art, say;
+    if (!ov.last_run) {
+      return `<section class="nimbo-hero"><div class="nimbo-hero-art" id="hero-nimbo" title="Oi!"><span class="nimbo-bob" style="display:inline-flex">${nimbo('interact', 2, 1)}</span></div>
+        <div class="nimbo-hero-text"><h2 class="nimbo-hero-hi">${greet}! <span>Eu sou o Nimbo.</span></h2>
+        <p class="nimbo-hero-say">Ainda não li o seu SIGAA. Um clique e eu <b>gero o SIGAA Simulado</b>, faço a <b>primeira coleta</b> e monto o <b>plano de hoje</b>.</p>
+        <div class="dash-quick-actions mt-3"><button type="button" class="dash-quick-action dash-quick-action-primary" data-setup><i data-lucide="rocket"></i>Preparar tudo</button><a href="#/operacao" class="dash-quick-action"><i data-lucide="sliders-horizontal"></i>Painel de controle</a></div></div></section>`;
+    }
+    if (d && d.days_left <= 1) { art = nimbo('notify', 0, 1.05); say = `Atenção: <b>${esc(d.title)}</b> (${esc(d.course)}) vence <b>${esc(d.relative)}</b>.`; }
+    else if (k.deadlines_7d > 0) { art = nimbo('hold', 2, 0.98); say = `Você tem <b>${k.deadlines_7d} prazo(s)</b> nesta semana. O mais próximo é <b>${esc(d.title)}</b> (${esc(d.course)}), ${esc(d.relative)}.`; }
+    else if (planDone) { art = nimbo('effects', 3, 0.95); say = 'Plano de hoje concluído. Mandou bem!'; }
+    else { art = nimbo('interact', 2, 1); say = 'Semana tranquila: nenhum prazo nos próximos 7 dias.'; }
+    const plan = ov.plan ? (planDone ? '' : ` Plano de hoje: <b>${ov.plan.done}/${ov.plan.tasks}</b> sessões feitas.`) : ' Ainda sem plano pra hoje; que tal montar um?';
+    return `<section class="nimbo-hero"><div class="nimbo-hero-art" id="hero-nimbo" title="Oi!"><span class="nimbo-bob" style="display:inline-flex">${art}</span></div>
+      <div class="nimbo-hero-text"><h2 class="nimbo-hero-hi">${greet}! <span>Bora estudar?</span></h2><p class="nimbo-hero-say">${say}${plan}</p>
+      <p class="nimbo-hero-meta">${esc(ov.institution.toUpperCase())} · perfil ${esc(ov.profile)} · ${ov.last_success_at ? 'última coleta ' + esc(fmtDateTime(ov.last_success_at)) : 'sem coleta concluída'}</p></div></section>`;
+  }
+  document.addEventListener('click', (e) => {
+    const art = e.target.closest('#hero-nimbo .nimbo');
+    if (!art) return;
+    art.style.animation = 'none'; void art.offsetWidth; art.style.animation = 'nimbo-hop 0.5s ease';
+  });
+
+  // "Preparar tudo" (home vazia): roda a sequência e leva ao painel de controle para acompanhar
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-setup]');
+    if (!b || b.disabled) return;
+    b.disabled = true;
+    try { await post('ops/run', { preset: 'setup-all' }); } catch (err) {
+      try { await post('ops/run', { preset: 'sync' }); } catch (e2) { toast(e2.message, 'err'); b.disabled = false; return; }
+    }
+    location.hash = '#/operacao';
+  });
 
   // --- plano
   views.plano = async (params) => {
@@ -317,7 +687,7 @@
     const title = `Plano de ${d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}`;
     let body;
     if (!plan) {
-      body = `<div class="dash-card"><div class="dash-empty"><i data-lucide="target"></i>Ainda não há plano para este dia (${minutesLabel(avail)} disponíveis). Clique em <b>Gerar plano</b>.</div></div>`;
+      body = `<div class="dash-card"><div class="dash-empty">${nimbo('hold', 2, 0.6)}Ainda não há plano para este dia (${minutesLabel(avail)} disponíveis). Clique em <b>Gerar plano</b>.</div></div>`;
     } else {
       const pct = plan.available_minutes ? Math.min(100, Math.round((plan.used_minutes / plan.available_minutes) * 100)) : 0;
       const done = plan.tasks.filter((t) => t.status === 'done').length;
@@ -341,7 +711,7 @@
       const btn = $('plan-new'); btn.classList.add('is-loading'); btn.disabled = true; $('plan-noai').disabled = true;
       try {
         const r = await post('plan', Object.assign({ date: day }, opts));
-        toast('Plano atualizado.'); renderPlan(day, r.plan, avail);
+        toast('Plano atualizado.'); renderPlan(day, r.plan, avail); setTimeout(() => buddy.idea(), 1800);
       } catch (e) { toast(`Falha ao planejar: ${e.message}`, 'err'); btn.classList.remove('is-loading'); btn.disabled = false; $('plan-noai').disabled = false; }
     };
     $('plan-new').addEventListener('click', () => build({ new: !!plan }));
@@ -525,108 +895,140 @@
     icons();
   };
 
-  // --- chat
-  const chat = { busy: false, history: [] };
-  views.chat = async () => {
-    setPage('Chat', true);
-    const chips = [['O que eu estudo hoje?', 'hoje'], ['Tem novidade?', 'resumo'], ['Próximos prazos', 'pz:1'], ['Minhas notas', 'notas'], ['Status do agente', 'status:full']];
-    main.innerHTML = `<div class="dash-chat">
-      <div class="dash-chat-topbar"><span class="text-xs text-slate-500 px-1">Mesmo roteador do Telegram: datas por template, conteúdo via IA com fonte.</span>
-        <button type="button" class="dash-chat-topbtn dash-chat-topbtn--primary" id="chat-new"><i data-lucide="plus"></i><span>Limpar</span></button></div>
-      <div class="dash-chat-scroll" id="chat-scroll">
-        <div class="dash-chat-empty" id="chat-empty"><h1>Como posso ajudar?</h1><p>Pergunte sobre prazos, notas, avisos ou conteúdo dos seus materiais. Comandos como <code>/prazos</code> também funcionam.</p>
-          <div class="dash-chat-empty-grid">${chips.map((c) => `<button type="button" class="dash-chat-action" data-callback="${esc(c[1])}">${esc(c[0])}</button>`).join('')}</div></div>
-        <div class="dash-chat-thread" id="chat-thread" hidden></div></div>
-      <div class="dash-chat-composer-wrap"><div class="dash-chat-composer-inner">
-        <div class="dash-chat-chips">${chips.map((c) => `<button type="button" class="dash-chat-chip" data-callback="${esc(c[1])}">${esc(c[0])}</button>`).join('')}</div>
-        <div class="dash-chat-composer"><textarea id="chat-input" class="dash-chat-input" rows="1" placeholder="Quando é minha prova de Física II?"></textarea>
-          <button type="button" class="dash-chat-send" id="chat-send" aria-label="Enviar" disabled><i data-lucide="arrow-up"></i></button></div>
-        <p class="dash-chat-hint">Enter envia · Shift+Enter quebra linha · nada é executado, só consultado</p></div></div></div>`;
-    icons();
-    const input = $('chat-input'), send = $('chat-send'), thread = $('chat-thread'), emptyEl = $('chat-empty'), scroll = $('chat-scroll');
-    const grow = () => { input.style.height = 'auto'; input.style.height = `${Math.min(input.scrollHeight, 160)}px`; };
-    const show = () => { emptyEl.hidden = true; thread.hidden = false; };
-    const toEnd = () => { scroll.scrollTop = scroll.scrollHeight; };
-    const row = (side, html) => { show(); const r = document.createElement('div'); r.className = `dash-chat-row dash-chat-row--${side}`; r.innerHTML = `<div class="dash-chat-bubble">${html}</div>`; thread.appendChild(r); toEnd(); return r; };
-    const lock = () => thread.querySelectorAll('.dash-chat-action').forEach((b) => { b.disabled = true; });
-    let typing = null;
-    const setBusy = (v) => { chat.busy = v; input.disabled = v; send.disabled = v || !input.value.trim(); };
-    const viewHtml = (v) => {
-      const bold = (line, bolds) => { let h = esc(line); (bolds || []).forEach((b) => { if (b) h = h.split(esc(b)).join(`<b>${esc(b)}</b>`); }); return h; };
-      let h = `<div class="dash-chat-title">${v.emoji ? esc(v.emoji) + ' ' : ''}${esc(v.title)}</div>`;
-      if (v.subtitle) h += `<div class="dash-chat-subtitle">${esc(v.subtitle)}</div>`;
-      (v.blocks || []).forEach((b) => { h += `<div class="dash-chat-block ${b.italic ? 'is-italic' : ''}">${b.lines.map((l) => `<p>${bold(l, b.bold)}</p>`).join('')}</div>`; });
-      if (v.footer) h += `<div class="dash-chat-footer">${esc(v.footer)}</div>`;
-      if (v.buttons && v.buttons.length) h += `<div class="dash-chat-actions">${v.buttons.map((b) => `<button type="button" class="dash-chat-action" data-callback="${esc(b.callback)}">${esc(b.label)}</button>`).join('')}</div>`;
-      return h;
-    };
-    const ask = async (path, body, userText) => {
-      if (chat.busy) return;
-      lock();
-      if (userText) row('user', `<p>${esc(userText)}</p>`);
-      input.value = ''; grow(); setBusy(true);
-      typing = row('bot', '<span class="dash-chat-typing"><i></i><i></i><i></i></span>');
-      try {
-        const r = await post(path, body);
-        typing.remove(); typing = null;
-        row('bot', viewHtml(r.view));
-      } catch (e) {
-        if (typing) { typing.remove(); typing = null; }
-        const n = document.createElement('div'); n.className = 'dash-chat-note'; n.textContent = `Não consegui responder agora (${e.message}).`; thread.appendChild(n);
-      } finally { setBusy(false); input.focus(); }
-    };
-    input.addEventListener('input', () => { grow(); send.disabled = chat.busy || !input.value.trim(); });
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const t = input.value.trim(); if (t) ask('chat', { text: t }, t); } });
-    send.addEventListener('click', () => { const t = input.value.trim(); if (t) ask('chat', { text: t }, t); });
-    main.addEventListener('click', (e) => { const b = e.target.closest('[data-callback]'); if (b && !b.disabled) ask('chat/action', { callback: b.dataset.callback }, b.textContent.trim()); });
-    $('chat-new').addEventListener('click', () => { thread.innerHTML = ''; thread.hidden = true; emptyEl.hidden = false; input.focus(); });
-    input.focus();
-  };
-
-  // --- operação
+  // --- controle: todo comando da CLI vira botão (ou formulário curto) aqui
   let opsTimer = null;
+  const opsMore = {};  // seções recolhíveis abertas (sobrevivem ao re-render)
   views.operacao = async () => {
-    setPage('Agente');
+    setPage('Controle');
     render(skeleton(3, 6));
     await renderOps();
+  };
+  const ICONS = {
+    'setup-all': 'rocket', init: 'file-cog', sync: 'refresh-cw', 'sync-collect': 'download', 'process-pending': 'play', 'telegram-poll': 'send',
+    plan: 'target', mochila: 'backpack', 'mochila-custom': 'backpack', 'sim-gerar': 'database', 'sim-info': 'info',
+    'sim-avancar-hora': 'clock-1', 'sim-avancar-dia': 'sun', 'sim-avancar-semana': 'calendar-range', 'sim-avancar': 'fast-forward',
+    'sim-eventos': 'list', 'sim-eventos-todos': 'list-checks', 'sim-sessao-expirar': 'log-out', 'sim-sessao-renovar': 'log-in',
+    doctor: 'stethoscope', status: 'info', demo: 'flask-conical',
+    'sync-fixture-changed': 'git-compare', 'sync-fixture-baseline': 'database', 'sync-fixture-expired': 'timer-off',
   };
   async function renderOps() {
     const [st, runs] = await Promise.all([api('ops/status'), api('ops/runs')]);
     if (!location.hash.startsWith('#/operacao')) return;
-    const presets = st.presets.map((p) => `<button type="button" class="dash-quick-action ${p.id === 'sync' ? 'dash-quick-action-primary' : ''}" data-preset="${esc(p.id)}" ${st.running ? 'disabled' : ''}><i data-lucide="${({ sync: 'refresh-cw', 'sync-collect': 'download', 'process-pending': 'play', doctor: 'stethoscope', status: 'info', 'sim-avancar-dia': 'clock', 'sim-avancar-semana': 'calendar-clock', 'sim-eventos': 'list', mochila: 'backpack' })[p.id] || 'terminal'}"></i>${esc(p.label)}</button>`).join('');
-    const checks = st.checks.map((c) => `<div class="dash-check ${c.ok ? 'is-ok' : c.soft ? 'is-soft' : 'is-bad'}"><i data-lucide="${c.ok ? 'check-circle-2' : c.soft ? 'alert-triangle' : 'x-circle'}"></i><span>${esc(c.label)}</span>${!c.ok && c.hint ? `<small>— ${esc(c.hint)}</small>` : ''}</div>`).join('');
+    const has = new Set(st.presets.map((p) => p.id));
+    const label = Object.fromEntries(st.presets.map((p) => [p.id, p.label.replace(/^Simulador: /, '')]));
+    const off = st.running ? 'disabled' : '';
+    const btn = (id, text, primary) => has.has(id)
+      ? `<button type="button" class="dash-quick-action ${primary ? 'dash-quick-action-primary' : ''}" data-preset="${id}" ${off}><i data-lucide="${ICONS[id] || 'terminal'}"></i>${esc(text || label[id])}</button>` : '';
+    const form = (id, fields, text, primary) => has.has(id)
+      ? `<form class="dash-ctl-form" data-preset="${id}">${fields}<button type="submit" class="dash-btn ${primary ? 'dash-btn-primary' : 'dash-btn-outline'}" ${off}><i data-lucide="${ICONS[id] || 'play'}"></i>${esc(text)}</button></form>` : '';
+    const num = (name, lbl, ph, min, max) => `<label class="dash-ctl-field"><span>${esc(lbl)}</span><input class="dash-input" type="number" name="${name}" placeholder="${esc(ph)}" min="${min}" max="${max}"></label>`;
+    const day = (name, lbl) => `<label class="dash-ctl-field"><span>${esc(lbl)}</span><input class="dash-input" type="date" name="${name}"></label>`;
+    const when = (name, lbl) => `<label class="dash-ctl-field"><span>${esc(lbl)}</span><input class="dash-input" type="datetime-local" name="${name}"></label>`;
+    const chk = (name, lbl, on) => `<label class="dash-ctl-check"><input type="checkbox" name="${name}" ${on ? 'checked' : ''}>${esc(lbl)}</label>`;
+    const group = (title, icon, sub, body) => body.replace(/\s/g, '') ? card(title, icon, `${sub ? `<p class="dash-ctl-sub">${sub}</p>` : ''}${body}`) : '';
+
+    const su = st.setup, simulado = su.profile === 'simulado';
+    const steps = [
+      ...(simulado ? [[su.sim_db, 'SIGAA Simulado gerado', 'banco fictício com turmas, prazos e notas']] : []),
+      [su.synced, 'Primeira coleta feita', 'o agente leu o SIGAA'],
+      [su.plan_today, 'Plano de hoje montado', 'Mochila 0/1 escolheu as sessões'],
+    ];
+    const ready = (!simulado || su.sim_db) && su.synced;
+    const allDone = ready && su.plan_today;
+    const lockBadge = st.lock ? ' ' + badge(`trava ativa (pid ${st.lock.pid})`, 'warning') : '';
+    const onboarding = allDone
+      ? `<div class="dash-ctl-ready"><i data-lucide="check-circle-2"></i><span><b>Tudo pronto.</b> SIGAA lido e plano de hoje montado.${lockBadge}</span>${btn('setup-all', 'Refazer coleta e plano')}</div>`
+      : `<section class="nimbo-hero dash-ctl-onboard">
+      <div class="nimbo-hero-art"><span class="nimbo-bob" style="display:inline-flex">${nimbo(ready ? 'express' : 'hold', ready ? 0 : 2, 0.9)}</span></div>
+      <div class="nimbo-hero-text"><h2 class="nimbo-hero-hi">${ready ? 'Quase lá!' : 'Vamos começar?'} <span>${ready ? 'Falta pouco.' : 'Um clique e eu preparo tudo.'}</span></h2>
+        <ul class="dash-ctl-steps">${steps.map(([ok, t, d]) => `<li class="${ok ? 'is-ok' : ''}"><i data-lucide="${ok ? 'check-circle-2' : 'circle'}"></i><b>${esc(t)}</b><small>${esc(d)}</small></li>`).join('')}</ul>
+        <div class="dash-quick-actions mt-3">${btn('setup-all', ready ? 'Refazer coleta e plano' : 'Preparar tudo', true)}${!su.config ? btn('init') : ''}</div>${lockBadge}</div></section>`;
+
+    const clock = simulado && su.sim_db ? `<div class="dash-ctl-clock"><i data-lucide="clock"></i><div><small>agora no SIGAA Simulado</small><b>${esc(new Date(su.now).toLocaleString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' }))}</b></div></div>` : '';
+    // o essencial fica à vista; o resto (formulários, cenários, diagnóstico) vai para "Mais comandos"
+    const essentials = [
+      group('Coleta', 'refresh-cw', 'Lê o SIGAA, detecta mudanças e gera avisos.',
+        `<div class="dash-quick-actions">${btn('sync', 'Coletar agora', true)}${btn('process-pending', 'Processar pendências')}</div>`),
+      simulado && su.sim_db ? group('Tempo do SIGAA Simulado', 'clock', 'Avance o relógio e colete para o agente perceber as mudanças.',
+        `${clock}<div class="dash-quick-actions">${btn('sim-avancar-hora', '+1 hora')}${btn('sim-avancar-dia', '+1 dia', true)}${btn('sim-avancar-semana', '+1 semana')}</div>`) : '',
+      group('Plano do dia', 'target', 'A Mochila 0/1 escolhe as sessões que cabem no seu tempo livre.',
+        form('plan', '<input type="hidden" name="new" value="1">', 'Gerar plano de hoje', true)),
+    ].filter(Boolean).join('');
+    const advanced = [
+      group('Coleta', 'refresh-cw', '',
+        `<div class="dash-quick-actions">${btn('sync-collect')}${btn('telegram-poll')}</div>
+         ${has.has('sync-fixture-changed') ? `<p class="dash-ctl-sub mt-3">Cenários do perfil demo:</p><div class="dash-quick-actions">${btn('sync-fixture-baseline')}${btn('sync-fixture-changed')}${btn('sync-fixture-expired')}</div>` : ''}`),
+      simulado && su.sim_db ? group('Relógio', 'clock', '',
+        `${form('sim-avancar', num('dias', 'Dias', '0', 0, 365) + num('horas', 'Horas', '0', 0, 23), 'Avançar')}
+         ${form('sim-avancar', when('ate', 'Ir até'), 'Avançar até')}
+         <div class="dash-quick-actions mt-3">${btn('sim-eventos', 'Próximos eventos')}${btn('sim-eventos-todos', 'Todos os eventos')}${btn('sim-info', 'Info')}</div>`) : '',
+      group('Plano e Mochila 0/1', 'backpack', '',
+        `${form('plan', day('date', 'Dia (vazio = hoje)') + chk('new', 'nova versão', true) + chk('no_ai', 'sem IA'), 'Gerar plano')}
+         ${form('mochila-custom', day('date', 'Dia') + num('minutos', 'Minutos livres', 'do dia', 1, 1440) + chk('tabela', 'tabela T[i][w]') + chk('comparar', 'comparar guloso/força bruta', true), 'Rodar mochila')}
+         ${form('mochila-custom', '<input type="hidden" name="exemplo" value="1">' + num('capacidade', 'Capacidade', '7', 1, 50) + chk('tabela', 'tabela', true) + chk('comparar', 'comparar', true), 'Exemplo didático')}`),
+      simulado ? group('SIGAA Simulado', 'database', 'Mesma semente → mesmos dados.',
+        `${has.has('sim-sessao-expirar') && su.sim_db ? `<div class="dash-quick-actions mb-3">${btn('sim-sessao-expirar', 'Expirar sessão')}${btn('sim-sessao-renovar', 'Renovar sessão')}</div>` : ''}
+         ${form('sim-gerar', num('semente', 'Semente', '2026', 0, 2147483647) + num('discentes', 'Discentes', '40', 1, 500) + when('relogio', 'Relógio inicial') + (su.sim_db ? chk('sobrescrever', 'apagar e recriar') : ''), su.sim_db ? 'Recriar SIGAA' : 'Gerar SIGAA', !su.sim_db)}`) : '',
+      group('Diagnóstico', 'stethoscope', '',
+        `<div class="dash-quick-actions mb-3">${btn('status')}${btn('doctor')}${btn('init')}${btn('demo')}</div>
+         ${st.checks.map((c) => `<div class="dash-check ${c.ok ? 'is-ok' : c.soft ? 'is-soft' : 'is-bad'}"><i data-lucide="${c.ok ? 'check-circle-2' : c.soft ? 'alert-triangle' : 'x-circle'}"></i><span>${esc(c.label)}</span>${!c.ok && c.hint ? `<small>— ${esc(c.hint)}</small>` : ''}</div>`).join('')}`),
+    ].filter(Boolean).join('');
+    const more = (key, title, sub, body) => `<details class="dash-more" data-more="${key}" ${opsMore[key] ? 'open' : ''}><summary><i data-lucide="chevron-right"></i><b>${esc(title)}</b><small>${esc(sub)}</small></summary><div class="dash-more-body">${body}</div></details>`;
+
     const lr = st.last_run;
     const runsRows = st.runs.map((r) => `<tr><td>#${r.id}</td><td>${statusBadge(r.status)}${r.baseline ? ' ' + badge('baseline', 'light') : ''}</td><td class="whitespace-nowrap">${esc(fmtDateTime(r.started_at))}</td><td>${r.stats.duration_s != null ? r.stats.duration_s + 's' : '—'}</td><td>${r.stats.items_seen ?? '—'}</td><td>${r.stats.created ?? '—'}/${r.stats.updated ?? '—'}/${r.stats.removed ?? '—'}</td><td>${r.stats.sections_ok ?? '—'}/${r.stats.sections_partial ?? '—'}/${r.stats.sections_empty ?? '—'}/${r.stats.sections_failed ?? '—'}</td><td class="text-xs text-red-600">${esc(r.error || '')}</td></tr>`).join('');
     const jobsKinds = Object.entries(st.jobs_pending_by_kind).map(([k, n]) => badge(`${n} ${k.replace(/_/g, ' ')}`, 'warning')).join(' ') || badge('nenhuma pendência', 'success');
-    const failed = st.jobs_failed.length ? `<div class="dash-table-wrap mt-3"><table class="dash-table"><thead><tr><th>#</th><th>Tipo</th><th>Status</th><th>Tent.</th><th>Erro</th></tr></thead><tbody>${st.jobs_failed.map((j) => `<tr><td>${j.id}</td><td>${esc(j.kind)}</td><td>${statusBadge(j.status)}</td><td>${j.attempts}</td><td class="text-xs">${esc(j.last_error || '')}</td></tr>`).join('')}</tbody></table></div>` : '';
+    const failed = st.jobs_failed.length ? `<div class="dash-table-wrap mt-3"><table class="dash-table"><thead><tr><th>#</th><th>Tipo</th><th>Status</th><th>Tent.</th><th>Erro</th></tr></thead><tbody>${st.jobs_failed.slice(0, 5).map((j) => `<tr><td>${j.id}</td><td>${esc(j.kind)}</td><td>${statusBadge(j.status)}</td><td>${j.attempts}</td><td class="text-xs">${esc(j.last_error || '')}</td></tr>`).join('')}</tbody></table></div>${st.jobs_failed.length > 5 ? `<p class="text-xs text-slate-500 mt-2">+ ${st.jobs_failed.length - 5} outras adiadas/falhas</p>` : ''}` : '';
     const aiPct = st.ai_limits.tokens_per_day ? Math.min(100, Math.round((st.ai_today.tokens / st.ai_limits.tokens_per_day) * 100)) : 0;
     const execRows = runs.length ? runs.map((r) => `<tr class="is-clickable" data-run="${r.id}"><td>#${r.id}</td><td>${esc(r.label)}</td><td>${r.status === 'running' ? badge('executando…', 'info') : statusBadge(r.status)}</td><td class="whitespace-nowrap">${esc(fmtDateTime(new Date(r.started_at * 1000).toISOString()))}</td><td>${r.finished_at ? Math.round(r.finished_at - r.started_at) + 's' : '—'}</td><td>${r.line_count} linhas</td></tr>`).join('') : '';
-    render(intro('Operação do agente', `dados em ${st.data_dir}`, `<span class="text-sm text-slate-500">${st.lock ? badge(`trava ativa (pid ${st.lock.pid})`, 'warning') : ''}</span>`) +
-      `<section class="mb-4"><h2 class="dash-section-title">Executar</h2><div class="dash-quick-actions">${presets}</div>${st.running ? `<p class="text-sm text-slate-500 mt-2"><span class="refresh-dot is-loading"></span> ${esc(st.running.label)} em execução…</p>` : ''}</section>
+    render(`${onboarding}${st.running ? `<p class="text-sm text-slate-500 mb-3"><span class="refresh-dot is-loading"></span> ${esc(st.running.label)} em execução…</p>` : ''}
       <div id="run-output" class="mb-4"></div>
-      <div class="dash-grid-3 mb-4">
+      <div class="dash-grid-3 mb-5">${essentials}</div>
+      ${more('tools', 'Mais comandos', 'avanço personalizado, mochila, gerar SIGAA, diagnóstico', `<div class="dash-grid-2">${advanced}</div>`)}
+      ${more('monitor', 'Monitoramento', 'coletas, pendências, mensagens e log', `
+      <div class="dash-grid-2 mb-4">
         ${card('Última coleta', 'refresh-cw', lr ? `<div class="dash-kv"><dt>Status</dt><dd>${statusBadge(lr.status)}</dd><dt>Início</dt><dd>${esc(fmtDateTime(lr.started_at))}</dd><dt>Duração</dt><dd>${lr.stats.duration_s ?? '—'}s</dd><dt>Itens</dt><dd>${lr.stats.items_seen ?? '—'} (novos ${lr.stats.created ?? 0}, alterados ${lr.stats.updated ?? 0})</dd><dt>Seções</dt><dd>ok ${lr.stats.sections_ok ?? 0} · parcial ${lr.stats.sections_partial ?? 0} · vazia ${lr.stats.sections_empty ?? 0} · falha ${lr.stats.sections_failed ?? 0}</dd><dt>Sucesso</dt><dd>${esc(fmtDateTime(st.last_success_at))}</dd></div>${lr.error ? `<div class="dash-alert dash-alert-danger mt-3"><i data-lucide="alert-circle"></i>${esc(lr.error)}</div>` : ''}` : empty('Nenhuma coleta ainda.', 'refresh-cw'))}
-        ${card('Diagnóstico', 'stethoscope', checks)}
         ${card('Pendências e IA', 'cpu', `<div class="mb-3">${jobsKinds}</div><div class="dash-kv"><dt>Jobs</dt><dd>${esc(JSON.stringify(st.jobs))}</dd><dt>Outbox</dt><dd>${esc(JSON.stringify(st.outbox))}</dd><dt>IA hoje</dt><dd>${st.ai_today.calls} chamadas · ${st.ai_today.tokens} tokens</dd></div><div class="dash-minutes-bar mt-2"><div class="dash-progress"><div class="dash-progress-bar ${aiPct > 80 ? 'dash-progress-crit' : 'dash-progress-ok'}" style="width:${aiPct}%"></div></div><span>${aiPct}% do orçamento diário</span></div>${failed}`)}
       </div>
       ${runs.length ? card('Comandos executados nesta sessão', 'terminal', `<div class="dash-table-wrap"><table class="dash-table"><thead><tr><th>#</th><th>Comando</th><th>Status</th><th>Início</th><th>Duração</th><th></th></tr></thead><tbody>${execRows}</tbody></table></div>`) + '<div class="mb-4"></div>' : ''}
-      ${card('Histórico de coletas', 'history', `<div class="dash-table-wrap"><table class="dash-table"><thead><tr><th>#</th><th>Status</th><th>Início</th><th>Dur.</th><th>Itens</th><th>Novos/alt./rem.</th><th>Seções ok/parc./vazia/falha</th><th>Erro</th></tr></thead><tbody>${runsRows}</tbody></table></div>`)}
+      ${card('Histórico de coletas', 'history', runsRows ? `<div class="dash-table-wrap"><table class="dash-table"><thead><tr><th>#</th><th>Status</th><th>Início</th><th>Dur.</th><th>Itens</th><th>Novos/alt./rem.</th><th>Seções ok/parc./vazia/falha</th><th>Erro</th></tr></thead><tbody>${runsRows}</tbody></table></div>` : empty('Nenhuma coleta ainda.', 'history'))}
       <div class="mb-4"></div>
-      <div class="dash-grid-2">${card('Mensagens (outbox)', 'send', '<div id="outbox-box">' + skeleton(2, 3) + '</div>')}${card('Log', 'scroll-text', '<div id="log-box">' + skeleton(1, 8) + '</div>', '<button type="button" class="dash-btn dash-btn-ghost dash-btn-sm" id="log-refresh"><i data-lucide="refresh-cw"></i></button>')}</div>`);
+      <div class="dash-grid-2">${card('Mensagens (outbox)', 'send', '<div id="outbox-box">' + skeleton(2, 3) + '</div>')}${card('Log', 'scroll-text', '<div id="log-box">' + skeleton(1, 8) + '</div>', '<button type="button" class="dash-btn dash-btn-ghost dash-btn-sm" id="log-refresh"><i data-lucide="refresh-cw"></i></button>')}</div>`)}`);
+    main.querySelectorAll('details[data-more]').forEach((d) => d.addEventListener('toggle', () => { opsMore[d.dataset.more] = d.open; }));
 
-    main.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', async () => {
-      try { const r = await post('ops/run', { preset: b.dataset.preset }); toast(`${r.label} iniciado.`); followRun(r.id); } catch (e) { toast(e.message, 'err'); }
+    const run = async (preset, params) => {
+      if (preset === 'sim-gerar' && params.sobrescrever && !window.confirm('Apagar o SIGAA Simulado atual e recriar?')) return;
+      try {
+        const r = await post('ops/run', { preset, params: params || {} });
+        toast(`${r.label} iniciado.`);
+        main.querySelectorAll('[data-preset] button, button[data-preset]').forEach((b) => { b.disabled = true; });
+        followRun(r.id); $('run-output').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (e) { toast(e.message, 'err'); }
+    };
+    main.querySelectorAll('button[data-preset]').forEach((b) => b.addEventListener('click', () => run(b.dataset.preset)));
+    main.querySelectorAll('form[data-preset]').forEach((f) => f.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const params = {};
+      new FormData(f).forEach((v, k) => { if (v !== '') params[k] = v; });
+      run(f.dataset.preset, params);
     }));
     main.querySelectorAll('[data-run]').forEach((tr) => tr.addEventListener('click', () => followRun(Number(tr.dataset.run))));
     if (st.running) followRun(st.running.id);
     loadOutbox(); loadLog();
     $('log-refresh').addEventListener('click', loadLog);
   }
+  let buddyRun = null;
   async function followRun(id) {
     clearTimeout(opsTimer);
     const box = $('run-output'); if (!box) return;
     const r = await api(`ops/runs/${id}`);
-    box.innerHTML = card(`${r.label} · #${r.id}`, 'terminal', `<div class="text-xs text-slate-500 mb-2"><code>sigaa-sim ${esc(r.argv.join(' '))}</code> · ${r.status === 'running' ? '<span class="refresh-dot is-loading"></span> executando' : statusBadge(r.status) + ` · exit ${r.exit_code}`}</div><pre class="dash-log">${r.output.map(esc).join('\n') || '(sem saída ainda)'}</pre>`);
+    if (r.status === 'running' && buddyRun !== id) { buddyRun = id; buddy.working(true); }
+    else if (r.status !== 'running' && buddyRun === id) {
+      buddyRun = null; buddy.working(false);
+      if (r.exit_code === 0) { buddy.cheer(); buddy.say(`Pronto! <b>${esc(r.label)}</b> terminou.`); }
+      else { buddy.oops(); buddy.say(`Ih… <b>${esc(r.label)}</b> saiu com código ${esc(r.exit_code)}. Dá uma olhada no log.`); }
+    }
+    box.innerHTML = card(`${r.label} · #${r.id}`, 'terminal', `<div class="text-xs text-slate-500 mb-2">${r.commands.map((c) => `<code>sigaa-sim ${esc(c)}</code>`).join(' → ')} · ${r.status === 'running' ? '<span class="refresh-dot is-loading"></span> executando' : statusBadge(r.status) + ` · exit ${r.exit_code}`}</div><pre class="dash-log">${r.output.map(esc).join('\n') || '(sem saída ainda)'}</pre>`);
     icons();
     const pre = box.querySelector('pre'); pre.scrollTop = pre.scrollHeight;
     if (r.status === 'running') opsTimer = setTimeout(() => followRun(id), 1200);
@@ -671,22 +1073,24 @@
     if (!$('gate').hidden) return;
     clearTimeout(opsTimer);
     closeDrawer();
-    const { name, rest, params } = parseHash();
+    let { name, rest, params } = parseHash();
+    // links antigos para a tela de chat: abre a janela flutuante sobre o início
+    if (name === 'chat') { nimboChat.open(); history.replaceState(null, '', '#/'); name = 'home'; }
     const fn = views[name] || views.home;
     document.querySelectorAll('#sidebar-nav [data-route]').forEach((a) => a.classList.toggle('is-active', a.dataset.route === name || (name === 'home' && a.dataset.route === 'home')));
     const my = ++routing;
     try { await fn(params, rest); } catch (e) {
       if (my !== routing || e.message === 'unauthorized') return;
-      render(`<div class="dash-card"><div class="dash-empty"><i data-lucide="alert-circle"></i>Erro ao carregar: ${esc(e.message)}</div></div>`);
+      render(`<div class="dash-card">${empty(`Erro ao carregar: ${e.message}`, 'alert-circle')}</div>`);
+      buddy.oops();
     }
     window.scrollTo(0, 0);
   }
-  window.addEventListener('hashchange', route);
-  $('quick-chat-btn').addEventListener('click', () => { location.hash = '#/chat'; });
+  window.addEventListener('hashchange', () => { buddy.walk(); route(); });
 
   (async () => {
     icons();
-    if (await initGate()) { route(); refreshIndicator(); }
+    if (await initGate()) { buddy.start(); route(); refreshIndicator(); }
     setInterval(() => { if ($('gate').hidden) refreshIndicator(); }, 60000);
   })();
 })();

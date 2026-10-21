@@ -16,6 +16,7 @@ import json
 import logging
 import mimetypes
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -28,7 +29,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from sigaa_sim.clock import Clock
-from sigaa_sim.config import ConfigError, Settings
+from sigaa_sim.config import ConfigError, Settings, load_settings
 from sigaa_sim.sigaa import make_clock
 from sigaa_sim.storage import connect, migrate
 from sigaa_sim.web import api
@@ -39,13 +40,108 @@ STATIC_DIR = Path(__file__).parent / "static"
 MAX_BODY = 256 * 1024
 COOKIE = "sigaa_web_token"
 
-# Comandos da CLI que a interface pode disparar. Só estes; argumentos vêm daqui, nunca do cliente.
+# Ações do painel: cada uma vira um ou mais comandos da CLI em subprocesso. Só estas; o cliente
+# manda o id e parâmetros, que são validados aqui antes de virar argv (nunca argv vindo do cliente).
+_DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_INSTANT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$")
+
+
+def _p_int(params: dict[str, Any], key: str, lo: int, hi: int) -> int | None:
+    v = params.get(key)
+    if v in (None, ""):
+        return None
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        raise api.ApiError(f"{key}: número inválido") from None
+    if not lo <= n <= hi:
+        raise api.ApiError(f"{key}: use um valor entre {lo} e {hi}")
+    return n
+
+
+def _p_text(params: dict[str, Any], key: str, pattern: re.Pattern[str], hint: str) -> str | None:
+    v = str(params.get(key) or "").strip()
+    if not v:
+        return None
+    if not pattern.match(v):
+        raise api.ApiError(f"{key}: formato inválido (use {hint})")
+    return v
+
+
+def _flag(params: dict[str, Any], key: str, opt: str) -> list[str]:
+    return [opt] if params.get(key) in (True, "1", "true", "on") else []
+
+
+def _opt(opt: str, v: Any) -> list[str]:
+    return [] if v is None else [opt, str(v)]
+
+
+def _b_gerar(p: dict[str, Any], settings: Settings) -> list[list[str]]:
+    return [
+        ["simulador", "gerar"]
+        + _opt("--semente", _p_int(p, "semente", 0, 2**31 - 1))
+        + _opt("--discentes", _p_int(p, "discentes", 1, 500))
+        + _opt("--relogio", _p_text(p, "relogio", _INSTANT_RE, "AAAA-MM-DD ou AAAA-MM-DDTHH:MM"))
+        + _flag(p, "sobrescrever", "--sobrescrever")
+    ]
+
+
+def _b_avancar(p: dict[str, Any], settings: Settings) -> list[list[str]]:
+    ate = _p_text(p, "ate", _INSTANT_RE, "AAAA-MM-DD ou AAAA-MM-DDTHH:MM")
+    if ate:
+        return [["simulador", "avancar", "--ate", ate]]
+    dias, horas = _p_int(p, "dias", 0, 365) or 0, _p_int(p, "horas", 0, 23) or 0
+    if not dias and not horas:
+        raise api.ApiError("informe dias, horas ou uma data alvo")
+    return [["simulador", "avancar", "--dias", str(dias), "--horas", str(horas)]]
+
+
+def _b_mochila(p: dict[str, Any], settings: Settings) -> list[list[str]]:
+    argv = ["mochila"]
+    if p.get("exemplo") in (True, "1", "true", "on"):
+        argv += ["--exemplo"] + _opt("--capacidade", _p_int(p, "capacidade", 1, 50))
+    else:
+        argv += _opt("--date", _p_text(p, "date", _DAY_RE, "AAAA-MM-DD"))
+        argv += _opt("--minutos", _p_int(p, "minutos", 1, 1440))
+    return [argv + _flag(p, "tabela", "--tabela") + _flag(p, "comparar", "--comparar")]
+
+
+def _b_plan(p: dict[str, Any], settings: Settings) -> list[list[str]]:
+    return [
+        ["plan"]
+        + _opt("--date", _p_text(p, "date", _DAY_RE, "AAAA-MM-DD"))
+        + _flag(p, "new", "--new")
+        + _flag(p, "no_ai", "--no-ai")
+    ]
+
+
+def _b_setup(p: dict[str, Any], settings: Settings) -> list[list[str]]:
+    """Do zero ao painel cheio: SIGAA fictício (se faltar) → 1ª coleta → plano de hoje."""
+    steps = [] if settings.sim_db_path.exists() else [["simulador", "gerar"]]
+    return steps + [["sync", "--once", "--echo"], ["plan", "--new"]]
+
+
 RUN_PRESETS: dict[str, dict[str, Any]] = {
+    # início
+    "setup-all": {"label": "Preparar tudo", "build": _b_setup, "simulado": True},
+    "init": {"label": "Criar config.toml e .env", "argv": ["init"], "reload": True},
+    # coleta
     "sync": {"label": "Coletar e processar", "argv": ["sync", "--once", "--echo"]},
     "sync-collect": {"label": "Só coletar (sem processar)", "argv": ["sync", "--once", "--no-process"]},
     "process-pending": {"label": "Processar pendências", "argv": ["process-pending", "--echo"]},
-    "doctor": {"label": "Diagnóstico (doctor)", "argv": ["doctor"]},
-    "status": {"label": "Status detalhado", "argv": ["status", "-v"]},
+    "telegram-poll": {"label": "Atender Telegram (uma rodada)", "argv": ["telegram-poll", "--once"]},
+    # plano e mochila
+    "plan": {"label": "Gerar plano", "build": _b_plan},
+    "mochila": {"label": "Mochila 0/1 do dia", "argv": ["mochila", "--comparar"], "simulado": True},
+    "mochila-custom": {"label": "Mochila 0/1", "build": _b_mochila, "simulado": True},
+    # SIGAA Simulado
+    "sim-gerar": {"label": "Simulador: gerar SIGAA", "build": _b_gerar, "simulado": True},
+    "sim-info": {"label": "Simulador: info", "argv": ["simulador", "info"], "simulado": True},
+    "sim-avancar-hora": {
+        "label": "Simulador: avançar 1 hora",
+        "argv": ["simulador", "avancar", "--dias", "0", "--horas", "1"],
+        "simulado": True,
+    },
     "sim-avancar-dia": {
         "label": "Simulador: avançar 1 dia",
         "argv": ["simulador", "avancar", "--dias", "1"],
@@ -56,12 +152,32 @@ RUN_PRESETS: dict[str, dict[str, Any]] = {
         "argv": ["simulador", "avancar", "--dias", "7"],
         "simulado": True,
     },
+    "sim-avancar": {"label": "Simulador: avançar o relógio", "build": _b_avancar, "simulado": True},
     "sim-eventos": {
         "label": "Simulador: próximos eventos",
         "argv": ["simulador", "eventos"],
         "simulado": True,
     },
-    "mochila": {"label": "Mochila 0/1 do dia", "argv": ["mochila", "--comparar"], "simulado": True},
+    "sim-eventos-todos": {
+        "label": "Simulador: todos os eventos",
+        "argv": ["simulador", "eventos", "--todos"],
+        "simulado": True,
+    },
+    "sim-sessao-expirar": {
+        "label": "Simulador: expirar sessão",
+        "argv": ["simulador", "sessao", "--expirar"],
+        "simulado": True,
+    },
+    "sim-sessao-renovar": {
+        "label": "Simulador: renovar sessão",
+        "argv": ["simulador", "sessao", "--renovar"],
+        "simulado": True,
+    },
+    # diagnóstico
+    "doctor": {"label": "Diagnóstico (doctor)", "argv": ["doctor"]},
+    "status": {"label": "Status detalhado", "argv": ["status", "-v"]},
+    "demo": {"label": "Demo completa (pasta temporária)", "argv": ["demo"]},
+    # perfil demo
     "sync-fixture-changed": {
         "label": "Demo: fixture alterada",
         "argv": ["sync", "--once", "--fixture", "changed"],
@@ -83,8 +199,9 @@ RUN_PRESETS: dict[str, dict[str, Any]] = {
 class RunRegistry:
     """Executa presets da CLI em subprocesso, um por vez, guardando a saída em memória."""
 
-    def __init__(self, settings: Settings, keep: int = 20):
+    def __init__(self, settings: Settings, keep: int = 20, on_reload=None):
         self.settings = settings
+        self.on_reload = on_reload
         self.keep = keep
         self._lock = threading.Lock()
         self._runs: list[dict[str, Any]] = []
@@ -98,7 +215,7 @@ class RunRegistry:
                 continue
             if p.get("simulado") and demo:
                 continue
-            out.append({"id": key, "label": p["label"], "argv": p["argv"]})
+            out.append({"id": key, "label": p["label"]})
         return out
 
     def list(self) -> list[dict[str, Any]]:
@@ -122,23 +239,24 @@ class RunRegistry:
                     return self._public(r)
         return None
 
-    def start(self, preset: str) -> dict[str, Any]:
+    def start(self, preset: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         p = RUN_PRESETS.get(preset)
         if not p or {x["id"] for x in self.presets()}.isdisjoint({preset}):
             raise api.ApiError(f"comando não permitido: {preset}", 400)
+        steps = p["build"](params or {}, self.settings) if "build" in p else [p["argv"]]
         if self.running():
             raise api.ApiError("já existe um comando em execução", 409)
-        argv = [sys.executable, "-m", "sigaa_sim.cli.main"]
+        base = [sys.executable, "-m", "sigaa_sim.cli.main"]
         if self.settings.config_path:
-            argv += ["--config", str(self.settings.config_path)]
-        argv += p["argv"]
+            base += ["--config", str(self.settings.config_path)]
         with self._lock:
             self._seq += 1
             run = {
                 "id": self._seq,
                 "preset": preset,
                 "label": p["label"],
-                "argv": argv[3:],
+                "commands": [" ".join(step) for step in steps],
+                "reload": bool(p.get("reload")),
                 "status": "running",
                 "started_at": time.time(),
                 "finished_at": None,
@@ -147,10 +265,26 @@ class RunRegistry:
             }
             self._runs.append(run)
             self._runs = self._runs[-self.keep :]
-        threading.Thread(target=self._exec, args=(run, argv), daemon=True).start()
+        threading.Thread(target=self._exec, args=(run, [base + step for step in steps]), daemon=True).start()
         return self._public(run)
 
-    def _exec(self, run: dict[str, Any], argv: list[str]) -> None:
+    def _exec(self, run: dict[str, Any], argvs: list[list[str]]) -> None:
+        code = 0
+        for argv in argvs:  # passos em sequência; para no primeiro que falhar
+            if len(argvs) > 1:
+                with self._lock:
+                    run["lines"].append(f"$ sigaa-sim {' '.join(argv[3:])}")
+            code = self._exec_one(run, argv)
+            if code != 0:
+                break
+        with self._lock:
+            run["exit_code"] = code
+            run["status"] = "ok" if code == 0 else "failed"
+            run["finished_at"] = time.time()
+        if code == 0 and run["reload"] and self.on_reload:
+            self.on_reload()
+
+    def _exec_one(self, run: dict[str, Any], argv: list[str]) -> int:
         try:
             proc = subprocess.Popen(
                 argv,
@@ -167,32 +301,43 @@ class RunRegistry:
                     run["lines"].append(line.rstrip("\n"))
                     if len(run["lines"]) > 2000:
                         del run["lines"][: len(run["lines"]) - 2000]
-            code = proc.wait()
+            return proc.wait()
         except Exception as e:  # noqa: BLE001 — qualquer falha vira saída legível
             with self._lock:
                 run["lines"].append(f"erro ao executar: {type(e).__name__}: {e}")
-            code = -1
-        with self._lock:
-            run["exit_code"] = code
-            run["status"] = "ok" if code == 0 else "failed"
-            run["finished_at"] = time.time()
+            return -1
 
     @staticmethod
     def _public(r: dict[str, Any]) -> dict[str, Any]:
-        return {k: v for k, v in r.items() if k != "lines"} | {"line_count": len(r["lines"])}
+        return {k: v for k, v in r.items() if k not in ("lines", "reload")} | {"line_count": len(r["lines"])}
 
 
 class WebApp:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.clock = make_clock(settings)
-        self.runs = RunRegistry(settings)
+        self.runs = RunRegistry(settings, on_reload=self.reload)
         settings.ensure_dirs()
         conn = connect(settings.db_path)
         try:
             migrate(conn)
         finally:
             conn.close()
+
+    # recriado a cada request: o banco simulado pode nascer (ou o relógio andar) com o servidor no ar
+    @property
+    def clock(self) -> Clock:
+        return make_clock(self.settings)
+
+    def reload(self) -> None:
+        """Relê config.toml/.env (depois de `init` pelo painel), sem reiniciar o servidor."""
+        try:
+            new = load_settings(self.settings.config_path or Path("config.toml"))
+        except ConfigError as e:
+            log.warning("config não recarregada: %s", e)
+            return
+        new.ensure_dirs()
+        self.settings = new
+        self.runs.settings = new
 
     # cada request abre a própria conexão (SQLite + threads)
     def conn(self):
@@ -415,6 +560,7 @@ class Handler(BaseHTTPRequestHandler):
             if sub == "status":
                 d = api.ops_status(conn, settings, clock)
                 d["presets"] = self.app.runs.presets()
+                d["setup"] = _setup_state(conn, settings, clock)
                 d["running"] = self.app.runs.running()
                 return self._send_json(d)
             if sub == "runs":
@@ -461,8 +607,27 @@ class Handler(BaseHTTPRequestHandler):
             )
             return self._send_json({"ok": True})
         if head == "ops" and rest and rest[0] == "run":
-            return self._send_json(self.app.runs.start(str(data.get("preset") or "")), 202)
+            params = data.get("params") if isinstance(data.get("params"), dict) else {}
+            return self._send_json(self.app.runs.start(str(data.get("preset") or ""), params), 202)
         raise api.ApiError("rota não encontrada", 404)
+
+
+def _setup_state(conn, settings: Settings, clock: Clock) -> dict[str, Any]:
+    """Checklist de primeiros passos mostrado no painel de controle."""
+    simulado = settings.sigaa.profile == "simulado"
+    synced = conn.execute("SELECT 1 FROM sync_runs WHERE status != 'failed' LIMIT 1").fetchone() is not None
+    planned = conn.execute(
+        "SELECT 1 FROM plans WHERE plan_date = ? LIMIT 1", (clock.today().isoformat(),)
+    ).fetchone()
+    return {
+        "profile": settings.sigaa.profile,
+        "config": settings.config_path is not None,
+        "sim_db": settings.sim_db_path.exists() if simulado else None,
+        "synced": synced,
+        "plan_today": planned is not None,
+        "now": clock.now().isoformat(),
+        "cwd": str(Path.cwd()),
+    }
 
 
 def _int(v: Any, default: int, lo: int | None = None, hi: int | None = None) -> int:
@@ -494,7 +659,13 @@ def make_server(settings: Settings, host: str = "127.0.0.1", port: int = 8765) -
     return srv
 
 
-def serve(settings: Settings, host: str = "127.0.0.1", port: int = 8765, insecure: bool = False) -> int:
+def serve(
+    settings: Settings,
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    insecure: bool = False,
+    browser: bool = False,
+) -> int:
     if host not in ("127.0.0.1", "localhost", "::1") and not settings.secrets.web_token and not insecure:
         print(
             "erro: para escutar fora do loopback defina WEB_TOKEN no .env (ou passe --insecure).",
@@ -506,6 +677,11 @@ def serve(settings: Settings, host: str = "127.0.0.1", port: int = 8765, insecur
     print(f"interface web em {shown}  (Ctrl+C para sair)")
     if not settings.secrets.web_token:
         print("aviso: sem WEB_TOKEN — qualquer processo local com acesso à porta pode usar a interface.")
+    print("tudo o mais (gerar o SIGAA, coletar, avançar o tempo, mochila…) é pelo painel: Controle.")
+    if browser:
+        import webbrowser
+
+        threading.Timer(0.6, webbrowser.open, (shown,)).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
